@@ -76,6 +76,8 @@ struct font_info
   /* Font metrics cache.  */
   struct font_metrics **metrics;
   short metrics_nrows;
+  /* Glyph codes of characters already looked up, or NULL.  */
+  struct ftcrfont_glyph_code *glyph_codes;
 #else
   /* These are used by the XFT backend.  */
   Display *display;

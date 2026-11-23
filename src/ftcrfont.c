@@ -228,6 +228,7 @@ ftcrfont_open (struct frame *f, Lisp_Object entity, int pixel_size)
 
   ftcrfont_info->metrics = NULL;
   ftcrfont_info->metrics_nrows = 0;
+  ftcrfont_info->glyph_codes = NULL;
 
   block_input ();
   cairo_glyph_t stack_glyph;
@@ -282,10 +283,10 @@ ftcrfont_open (struct frame *f, Lisp_Object entity, int pixel_size)
       font->descent = font->height - font->ascent;
     }
 
-  if (XFIXNUM (AREF (entity, FONT_SIZE_INDEX)) == 0)
+  /* A font entity without a fixed size can still open a bitmap font.  */
+  int upEM = ft_face->units_per_EM;
+  if (upEM && XFIXNUM (AREF (entity, FONT_SIZE_INDEX)) == 0)
     {
-      int upEM = ft_face->units_per_EM;
-
       font->underline_position = -ft_face->underline_position * size / upEM;
       font->underline_thickness = ft_face->underline_thickness * size / upEM;
       if (font->underline_thickness > 2)
@@ -353,6 +354,8 @@ ftcrfont_close (struct font *font)
 	xfree (ftcrfont_info->metrics);
       ftcrfont_info->metrics = NULL;
     }
+  xfree (ftcrfont_info->glyph_codes);
+  ftcrfont_info->glyph_codes = NULL;
   if (ftcrfont_info->cr_scaled_font)
     {
       cairo_scaled_font_destroy (ftcrfont_info->cr_scaled_font);
@@ -381,11 +384,39 @@ ftcrfont_has_char (Lisp_Object font, int c)
   return -1;
 }
 
+/* A font's character map is fixed, so a character's glyph code can
+   be kept for as long as the font is open.  Cairo keeps glyphs by
+   their codes, but asks FreeType for the code on each lookup, and
+   redisplay looks up every character it lays out.  The table is
+   direct-mapped: a character replaces the one in its slot.  */
+
+enum { FTCRFONT_GLYPH_CODES = 1024 };	/* a power of 2 */
+
+struct ftcrfont_glyph_code
+{
+  int c;			/* -1 if the slot is empty */
+  unsigned code;
+};
+
 static unsigned
 ftcrfont_encode_char (struct font *font, int c)
 {
   struct font_info *ftcrfont_info = (struct font_info *) font;
   unsigned code = FONT_INVALID_CODE;
+
+  if (!ftcrfont_info->glyph_codes)
+    {
+      ftcrfont_info->glyph_codes
+	= xmalloc (FTCRFONT_GLYPH_CODES * sizeof *ftcrfont_info->glyph_codes);
+      for (int i = 0; i < FTCRFONT_GLYPH_CODES; i++)
+	ftcrfont_info->glyph_codes[i]
+	  = (struct ftcrfont_glyph_code) { -1, FONT_INVALID_CODE };
+    }
+  struct ftcrfont_glyph_code *slot
+    = &ftcrfont_info->glyph_codes[c & (FTCRFONT_GLYPH_CODES - 1)];
+  if (slot->c == c)
+    return slot->code;
+
   unsigned char utf8[MAX_MULTIBYTE_LENGTH];
   int utf8len = CHAR_STRING (c, utf8);
   cairo_glyph_t stack_glyph;
@@ -400,8 +431,12 @@ ftcrfont_encode_char (struct font *font, int c)
     {
       if (glyphs != &stack_glyph)
 	cairo_glyph_free (glyphs);
-      else if (stack_glyph.index)
+      /* Cairo stops at a NUL and returns no glyph for it.  */
+      else if (num_glyphs == 1 && stack_glyph.index)
 	code = stack_glyph.index;
+      /* Whether the font has the character or not, the answer holds.  */
+      slot->c = c;
+      slot->code = code;
     }
 
   return code;

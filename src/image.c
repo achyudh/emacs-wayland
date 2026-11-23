@@ -343,22 +343,11 @@ cr_create_surface_from_pix_containers (Emacs_Pix_Container pimg,
   return surface;
 }
 
-/* Adjust image's surface size to take into account screen's DPI.  */
-
-static void
-cr_adjust_surface_size (struct frame *f, int *width, int *height)
-{
-  /* See `x_get_scale_factor'.  */
-  int base_res = 96;
-
-  *width = *width * FRAME_DISPLAY_INFO (f)->resx / base_res;
-  *height = *height * FRAME_DISPLAY_INFO (f)->resy / base_res;
-}
-
 static void
 cr_put_image_to_cr_data (struct frame *f, struct image *img)
 {
   cairo_pattern_t *pattern = NULL;
+  cairo_surface_t *cached = NULL;
   cairo_surface_t *surface = cr_create_surface_from_pix_containers (img->pixmap,
 								    img->mask);
   if (surface)
@@ -375,29 +364,19 @@ cr_put_image_to_cr_data (struct frame *f, struct image *img)
 	  cairo_pattern_destroy (img->cr_data);
 	}
 
+      /* X Cairo and PGTK can use the original surface for an
+	 untransformed static image.  Keep the pattern for transforms
+	 so Cairo samples it directly in the destination.  Canvases
+	 update the pattern's pixels in place.  */
+      if (!img->refresh && (FRAME_X_P (f) || FRAME_PGTK_P (f)))
+	{
+	  cairo_matrix_t matrix;
+	  cairo_pattern_get_matrix (pattern, &matrix);
+	  if (matrix.xx == 1 && matrix.yy == 1 && matrix.xy == 0
+	      && matrix.yx == 0 && matrix.x0 == 0 && matrix.y0 == 0)
+	    cached = cairo_surface_reference (surface);
+	}
       cairo_surface_destroy (surface);
-      cairo_pattern_get_surface (pattern, &surface);
-
-      /* Allocate a new surface and paint this pattern on it.
-
-	 This is used as a rendering optimization for `x_cr_draw_image'
-	 and `pgtk_cr_draw_image', because in Cairo drawing surfaces is
-	 much faster than drawing patterns.  */
-
-      cairo_format_t format = cairo_image_surface_get_format (surface);
-      int width = cairo_image_surface_get_width (surface);
-      int height = cairo_image_surface_get_height (surface);
-
-      cr_adjust_surface_size (f, &width, &height);
-
-      surface = cairo_surface_create_similar_image (surface, format, width,
-						    height);
-
-      cairo_t *cr = cairo_create (surface);
-
-      cairo_set_source (cr, pattern);
-      cairo_paint (cr);
-      cairo_destroy (cr);
     }
 
   if (img->cr_surface)
@@ -406,7 +385,7 @@ cr_put_image_to_cr_data (struct frame *f, struct image *img)
     }
 
   img->cr_data = pattern;
-  img->cr_surface = surface;
+  img->cr_surface = cached;
 }
 
 #endif	/* USE_CAIRO */

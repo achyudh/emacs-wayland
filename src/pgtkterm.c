@@ -2246,7 +2246,11 @@ pgtk_cr_draw_image (struct frame *f, Emacs_GC *gc, cairo_pattern_t *image,
   if (format != CAIRO_FORMAT_A8 && format != CAIRO_FORMAT_A1)
     {
       if (surface)
-	cairo_set_source_surface (cr, surface, 0, 0);
+	{
+	  cairo_set_source_surface (cr, surface, 0, 0);
+	  cairo_pattern_set_filter (cairo_get_source (cr),
+				    cairo_pattern_get_filter (image));
+	}
       else
 	cairo_set_source (cr, image);
 
