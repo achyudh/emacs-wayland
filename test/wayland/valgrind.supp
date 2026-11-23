@@ -1,0 +1,22 @@
+# Valgrind suppressions for the Wayland harness's memcheck runs
+# (README.md, "Sanitizers and soak").  Each entry names a report that
+# is not the backend's, with the reason it is safe: the garbage
+# collector's stack scan, and library internals.  Nothing reached
+# through src/wayland*.c is suppressed.
+
+# Emacs's conservative garbage collector scans the C stack and compares
+# every word against its heaps, uninitialized words included (etc/DEBUG,
+# "Running Emacs under Valgrind").  Without --enable-checking, alloc.c
+# does not mark those words defined (USE_VALGRIND).
+{
+   emacs-gc-conservative-scan-cond
+   Memcheck:Cond
+   ...
+   fun:garbage_collect
+}
+{
+   emacs-gc-conservative-scan-value8
+   Memcheck:Value8
+   ...
+   fun:garbage_collect
+}

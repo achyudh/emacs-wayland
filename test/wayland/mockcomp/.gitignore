@@ -1,0 +1,23 @@
+/mockcomp
+/selftest
+/xdg-shell-server-protocol.h
+/xdg-shell-client-protocol.h
+/xdg-shell-protocol.c
+
+# The top-level .gitignore ignores generated Makefiles; this one is
+# hand-written.
+!/Makefile
+/viewporter-protocol.c
+/viewporter-server-protocol.h
+/fractional-scale-v1-protocol.c
+/fractional-scale-v1-server-protocol.h
+/xdg-output-unstable-v1-protocol.c
+/xdg-output-unstable-v1-server-protocol.h
+/tablet-v2-protocol.c
+/tablet-v2-server-protocol.h
+/cursor-shape-v1-protocol.c
+/cursor-shape-v1-server-protocol.h
+/text-input-unstable-v3-protocol.c
+/text-input-unstable-v3-server-protocol.h
+/xdg-activation-v1-protocol.c
+/xdg-activation-v1-server-protocol.h

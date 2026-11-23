@@ -1,0 +1,162 @@
+{
+  "pgtk_clear_glyph_string_rect": {
+    "copy": "wayland_clear_glyph_string_rect",
+    "sha256": "8871f94d90e76ed485b4eb662675d085655a7cdc4fecec83fe8486f6e7fe1b77",
+    "similarity": 0.67
+  },
+  "pgtk_compute_glyph_string_overhangs": {
+    "copy": "wayland_compute_glyph_string_overhangs",
+    "sha256": "790f4ef9bdf8b037284cfe8fc7bdbda55a7d9b8a9e8052a35940a7f4d89e2e03",
+    "similarity": 0.97
+  },
+  "pgtk_compute_lighter_color": {
+    "copy": "wayland_compute_lighter_color",
+    "sha256": "09b2e2dccf4fb6a53a8265cf36db79a9261d6d11334cf49c02161e6c5c6a99ca",
+    "similarity": 0.98
+  },
+  "pgtk_cr_draw_image": {
+    "copy": "wayland_cr_draw_image",
+    "sha256": "06b40ba3c585e3b21c61cbe170d081f863ad918704c47c748a70fd4d06d186e7",
+    "similarity": 0.67
+  },
+  "pgtk_define_frame_cursor": {
+    "copy": "wayland_define_frame_cursor",
+    "sha256": "19192bb795fd4f519c49a3aa13ed32c5465b125c0d6565f41ffdeea147a1192b",
+    "similarity": 0.57
+  },
+  "pgtk_destroy_fringe_bitmap": {
+    "copy": "wayland_destroy_fringe_bitmap",
+    "sha256": "9c593ccab558b7b67507d2f73a6d3c1b729eedc506317bb675b0bb673e218c85",
+    "similarity": 0.5
+  },
+  "pgtk_draw_composite_glyph_string_foreground": {
+    "copy": "wayland_draw_composite_glyph_string_foreground",
+    "sha256": "3535832b98c57f7b836f3ca17b984ca268438bade01fa690c11adc26e0ca0bd4",
+    "similarity": 0.99
+  },
+  "pgtk_draw_dash": {
+    "copy": "wayland_draw_dash",
+    "sha256": "e33d82b212bd28d779d3f7735a1fba3be70188da74dd7d1326837ec1bd55ccf9",
+    "similarity": 0.94
+  },
+  "pgtk_draw_glyph_string": {
+    "copy": "wayland_draw_glyph_string",
+    "sha256": "2d52594459de37ac27656f1b9c01bbace99c72c155aef2baaf0953ca058cef35",
+    "similarity": 0.9
+  },
+  "pgtk_draw_glyph_string_background": {
+    "copy": "wayland_draw_glyph_string_background",
+    "sha256": "d26547944a2c05a5914083831aa31a4901896e85b6883e0a6073b0274b2529bf",
+    "similarity": 0.86
+  },
+  "pgtk_draw_glyph_string_bg_rect": {
+    "copy": "wayland_draw_glyph_string_bg_rect",
+    "sha256": "710758f408902891ff0758bef9ac7d3670acc73c0a58d8b860d8d7019b7b93ec",
+    "similarity": 0.88
+  },
+  "pgtk_draw_glyph_string_box": {
+    "copy": "wayland_draw_glyph_string_box",
+    "sha256": "d4f52f391eefe1d25663920f806b3b8c4d25905a57f33fa07884d5e2a05d397d",
+    "similarity": 1.0
+  },
+  "pgtk_draw_glyph_string_foreground": {
+    "copy": "wayland_draw_glyph_string_foreground",
+    "sha256": "a221c708430596aea4eab69d26237e5a7bf8765c69aa5d3ebb7802196d6d5170",
+    "similarity": 0.97
+  },
+  "pgtk_draw_glyphless_glyph_string_foreground": {
+    "copy": "wayland_draw_glyphless_glyph_string_foreground",
+    "sha256": "84a72a70f161885982b4e56f3b0de8fd696fa9f8b7e823e01a8c169f5854243b",
+    "similarity": 0.99
+  },
+  "pgtk_draw_horizontal_wave": {
+    "copy": "wayland_draw_horizontal_wave",
+    "sha256": "7370f6814c36b1e02751c63d61ba7282bf39c7698abcef5b404aed08ff9d07a8",
+    "similarity": 0.9
+  },
+  "pgtk_draw_image_foreground": {
+    "copy": "wayland_draw_image_foreground",
+    "sha256": "de91275f519ee05d08a95c722320d2e05473d37f8049d560da87fb9e81a840e9",
+    "similarity": 0.87
+  },
+  "pgtk_draw_image_glyph_string": {
+    "copy": "wayland_draw_image_glyph_string",
+    "sha256": "59b9b81ed12b9bb16149ef676f345a0cec00155bb7f0372a1e5f93e749e6a446",
+    "similarity": 1.0
+  },
+  "pgtk_draw_image_relief": {
+    "copy": "wayland_draw_image_relief",
+    "sha256": "b7505367edbf829d4a9acb8edec164e722659a32052e7bb1a7cf979fc106677f",
+    "similarity": 1.0
+  },
+  "pgtk_draw_relief_rect": {
+    "copy": "wayland_draw_relief_rect",
+    "sha256": "5ca1886bed8828ee43d3f84ac4b48a391ab6d63f94ee339fde1c1ba9638c106a",
+    "similarity": 0.8
+  },
+  "pgtk_draw_stretch_glyph_string": {
+    "copy": "wayland_draw_stretch_glyph_string",
+    "sha256": "20c0043c77afbf74a5b9c470024de84071c5dcfb9177a5e92089d1bd883cbffd",
+    "similarity": 0.89
+  },
+  "pgtk_draw_underwave": {
+    "copy": "wayland_draw_underwave",
+    "sha256": "1dffdd9bed3b0dfd4a3dd8a15246b5d7559c55251f14a6a0005435023285f9c9",
+    "similarity": 0.77
+  },
+  "pgtk_end_cr_clip": {
+    "copy": "wayland_end_cr_clip",
+    "sha256": "b637a645f43b5a5723d110a61987c0abe3213f154b51c36b2902d4b313b34d1c",
+    "similarity": 0.5
+  },
+  "pgtk_erase_corners_for_relief": {
+    "copy": "wayland_erase_corners_for_relief",
+    "sha256": "ddff71d1c7d185c5d9f5cf6f1c0ccc9aceae03a6b1e0b6ca5550dc946b9e2f4b",
+    "similarity": 0.98
+  },
+  "pgtk_fill_trapezoid_for_relief": {
+    "copy": "wayland_fill_trapezoid_for_relief",
+    "sha256": "634dafb3045a1df94d647a7848871803387062e6483804c65b9f63514ffb2ead",
+    "similarity": 0.96
+  },
+  "pgtk_fill_underline": {
+    "copy": "wayland_fill_underline",
+    "sha256": "4e8fd0f407a30dcc5d314e8f6cff0d0e3cb97b4c97789afa90f9ad1e61a930b4",
+    "similarity": 0.93
+  },
+  "pgtk_flush_display": {
+    "copy": "wayland_flush_display",
+    "sha256": "13a7e0034bbfc198a795136f16208414bb9d19d68241ebb6ba75395684e63fc1",
+    "similarity": 0.86
+  },
+  "pgtk_free_pixmap": {
+    "copy": "wayland_free_pixmap",
+    "sha256": "a852837cb9c3b7b49c8ccec132e13afd162decec6edb5b0743a3f6ff7118fecf",
+    "similarity": 1.0
+  },
+  "pgtk_fullscreen_hook": {
+    "copy": "wayland_fullscreen_hook",
+    "sha256": "4158bd09441eb5d36058a56ba424d8532e6b0c0296908aed1b7c35c7a0963cb6",
+    "similarity": 0.56
+  },
+  "pgtk_set_glyph_string_clipping_exactly": {
+    "copy": "wayland_set_glyph_string_clipping_exactly",
+    "sha256": "5987f13f1c71598cefb62732d8f7d62d68951b4e097f80be282e3d54b9724735",
+    "similarity": 1.0
+  },
+  "pgtk_set_no_accept_focus": {
+    "copy": "wayland_set_no_accept_focus",
+    "sha256": "6b338c98b09c1f9a90309a6fc739dd8e81a8c257e348cf21ac9ba7abcaa7b6f1",
+    "similarity": 0.55
+  },
+  "pgtk_setup_relief_colors": {
+    "copy": "wayland_setup_relief_colors",
+    "sha256": "3abda42f13eab159a337e86f570421e9f2d21a28d72cd47c6e0fdad050838731",
+    "similarity": 0.88
+  },
+  "pgtk_update_end": {
+    "copy": "wayland_update_end",
+    "sha256": "5768c4e44c1293ff3bbe282aca9e1b571537ea1b60b00a574cbaeb8d399db04a",
+    "similarity": 0.67
+  }
+}

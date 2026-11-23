@@ -1,0 +1,9 @@
+Image fixtures for the sway-image-* scenarios (see ../README.md),
+generated with Pillow:
+
+- gradient.jpg, gradient.webp: 48x48, red rising to the right and
+  green downward over blue falling to the right, quality 90.
+- gradient.tiff: the JPEG fixture resized to 32x32 and saved with LZW.
+- frames.gif: three 24x24 frames on white, 100 ms each, looping: a red
+  block at the top left, a green block at the top right and a blue
+  block at the bottom.  The scenarios check these colors.

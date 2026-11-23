@@ -1,0 +1,9 @@
+Protocol descriptions used only by the capture observer.
+
+These files are copied unchanged from wlroots 0.20.2, the version the
+pinned sway 1.12 links (see the repository's flake.lock).  Each carries
+its own copyright and license notice.
+
+  protocol/wlr-screencopy-unstable-v1.xml
+  protocol/virtual-keyboard-unstable-v1.xml
+  protocol/wlr-virtual-pointer-unstable-v1.xml

@@ -1,0 +1,110 @@
+mockcomp -- a scriptable Wayland compositor for testing the native
+Wayland backend.
+
+Build and check it inside `nix develop':
+
+  make -C test/wayland/mockcomp
+  make -C test/wayland/mockcomp check
+
+Run it:
+
+  mockcomp --socket NAME --control PATH [--trace FILE] [--snapshots DIRECTORY]
+
+It listens on the Wayland socket NAME in $XDG_RUNTIME_DIR, prints
+"mockcomp ready ..." on stdout when clients may connect, writes every
+request and event to the trace FILE, and accepts commands on the Unix
+socket PATH.  Its exit status is 2 if it recorded any protocol
+invariant violation.
+
+`--snapshots` writes the attached shm image on each content commit.
+The rendering runner gives each captured client its own mockcomp
+instance and snapshot directory. Mockcomp and Emacs's
+`wayland--dump-frame` name each PNG by surface ID and content commit.
+
+Globals: wl_compositor 6, wl_shm, wl_seat 8 (keyboard with a "us"
+keymap, pointer; --seat-version gives an older version, which tests
+the axis events of older seats), wl_output 4, wl_data_device_manager
+3, xdg_wm_base 6, zxdg_output_manager_v1 3, wp_cursor_shape_manager_v1
+1 (withheld by --no-cursor-shape), and, unless a fixture removes them,
+wp_viewporter and wp_fractional_scale_manager_v1.  Status reports the
+last cursor shape, how many shapes and wl_pointer.set_cursor requests
+arrived, and whether the last set_cursor hid the pointer.
+
+Outputs: MOCK-1 is 1920x1080 at scale 1.  MOCK-2, added by `output
+add', is 1920x1080 at 150%: wl_output.scale reports 2, as compositors
+round fractional scales up, and only xdg-output gives its exact
+logical size, 1280x720 at x=1920.
+
+Invariant checks, each recorded as a violation:
+
+  attach-before-configure   buffer on an xdg surface's initial commit
+                            (also a protocol error, as compositors do)
+  commit-before-ack         buffer committed before any configure ack
+  invalid-ack-serial        ack of an unsent or already-acked serial
+  reuse-of-held-buffer      attaching a buffer mockcomp still holds,
+                            other than the current one
+  damage-outside-buffer     damage_buffer beyond the buffer's size
+  xdg-surface-with-buffer   xdg surface created for a surface with a
+                            buffer
+  unexpected-popup          the backend has no popups
+
+Control commands, one per line; each gets one reply line ("ok",
+"error ...", or JSON):
+
+  status                    counters and violations, as JSON, with
+                            the held buffers and their sizes; with a
+                            mapped surface, also its last buffer size
+                            and whether its latest configure is acked
+  ping                      xdg_wm_base.ping to every client
+  key KEYCODE press|release evdev key event to the focused surface,
+                            focusing the first mapped surface if none
+                            is; modifiers follow from mockcomp's own
+                            xkb state and are sent when they change
+  focus SURFACE|none        move keyboard focus (leave, then enter and
+                            modifiers)
+  repeat-info RATE DELAY    send wl_keyboard.repeat_info (rate 0
+                            disables repeat)
+  layout LAYOUT[:VARIANT]   compile and send a new keymap, e.g. de or
+                            us:intl for dead keys
+  pointer enter SURFACE X Y | motion X Y | leave
+                            pointer focus and motion, in logical
+                            surface coordinates
+  pointer button CODE press|release
+                            evdev button, e.g. 272 for BTN_LEFT
+  pointer axis vertical|horizontal VALUE wheel|finger|continuous
+                            [VALUE120]
+                            an axis event with its source; VALUE120 is
+                            sent as axis_value120, or as axis_discrete
+                            below wl_seat 8
+  pointer stop vertical|horizontal
+                            axis_stop, which ends finger scrolling
+  clock real|MS             timestamps from the real clock, or from a
+                            manual clock set to MS
+  im preedit BEGIN END TEXT | im commit TEXT | im delete BEFORE AFTER
+  | im done [SERIAL]
+                            text-input-v3 events to the focused client;
+                            done's serial defaults to the object's
+                            commit count.  Text inputs get enter and
+                            leave as keyboard focus moves, and status
+                            reports the newest one under "im"
+  offer-selection TEXT      offer TEXT as the selection
+                            (text/plain;charset=utf-8)
+  request-selection         request the registered M0 test source on a pipe
+  selection-result          pending until the writer closes, then ok only
+                            if the fixed test payload arrived intact
+  stall on|off              stop or resume reading client requests;
+                            events from commands are still sent
+  hold-buffers on|off       keep or release superseded buffers
+  frame-callbacks on|off    fire frame callbacks every 16 ms, or not
+  configure W H [W H]...    send each size as a toplevel configure to
+                            every configured toplevel, as one burst
+                            (0 leaves that axis to the client)
+  protocol-error            post an error on the first xdg_wm_base
+  protocol-error-epipe      send that error and reject the next client write
+  disconnect-on-commit      drop the client at the next content commit
+  disconnect                drop every client
+  quit                      exit
+
+Planned fixtures: the damage-only image, out-of-order releases,
+configure states, output hotplug, the
+input-method role, and a deterministic clock.

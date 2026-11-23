@@ -1,0 +1,14 @@
+/observer
+/refclient
+/vkbd
+/vptr
+/*-protocol.c
+/*-client-protocol.h
+
+# The top-level .gitignore ignores generated Makefiles; this one is
+# hand-written.
+!/Makefile
+
+# The top-level .gitignore ignores XML under test/ as test output; these
+# are protocol descriptions.
+!/protocols/*.xml

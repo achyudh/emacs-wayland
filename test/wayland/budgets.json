@@ -1,0 +1,36 @@
+{
+  "damage-repair": {
+    "full_repairs": 8,
+    "peak_pool_bytes": 12076647,
+    "repair_bytes": 22364852,
+    "scroll_bytes": 3801908
+  },
+  "pool-budget": {
+    "full_repairs": 21,
+    "peak_pool_bytes": 268655616,
+    "repair_bytes": 141940839,
+    "scroll_bytes": 0
+  },
+  "pool-lifetime": {
+    "full_repairs": 17,
+    "peak_pool_bytes": 132008948,
+    "repair_bytes": 72777946,
+    "scroll_bytes": 0
+  },
+  "redisplay-instructions": {
+    "build": {
+      "cpu": "Intel(R) Core(TM) Ultra 7 265U",
+      "native": false,
+      "options": [
+        "--without-native-compilation",
+        "CFLAGS=-O2 -g"
+      ],
+      "version": "32.0.50"
+    },
+    "limits": {
+      "line": 9022080,
+      "page": 15947068,
+      "typing": 790399
+    }
+  }
+}
