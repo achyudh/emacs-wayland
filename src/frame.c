@@ -290,6 +290,7 @@ Value is:
  `pgtk' for an Emacs frame running on pure GTK.
  `haiku' for an Emacs frame running in Haiku.
  `android' for an Emacs frame running in Android.
+ `wayland' for an Emacs frame on a Wayland display.
 See also `frame-live-p'.  */)
   (Lisp_Object object)
 {
@@ -310,6 +311,8 @@ See also `frame-live-p'.  */)
       return Qns;
     case output_pgtk:
       return Qpgtk;
+    case output_wayland:
+      return Qwayland;
     case output_haiku:
       return Qhaiku;
     case output_android:
@@ -2871,7 +2874,6 @@ delete_frame (Lisp_Object frame, Lisp_Object force)
       pgtk_clear_frame_selections (f);
     }
 #endif
-
   /* Free glyphs.
      This function must be called before the window tree of the
      frame is deleted because windows contain dynamically allocated
@@ -5815,13 +5817,17 @@ gui_set_font (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 
   iwidth = max (10, FRAME_COLUMN_WIDTH (f));
   if (FRAME_IMAGE_CACHE (f)
-      && (iwidth != FRAME_IMAGE_CACHE (f)->scaling_col_width))
+      && (iwidth != FRAME_IMAGE_CACHE (f)->scaling_col_width
+	  || (FRAME_IMAGE_SCALE_KEY (f)
+	      != FRAME_IMAGE_CACHE (f)->scaling_device_scale)))
     {
       eassert (FRAME_IMAGE_CACHE (f)->refcount >= 1);
       if (FRAME_IMAGE_CACHE (f)->refcount == 1)
 	{
 	  /* This frame is the only user of this image cache.  */
 	  FRAME_IMAGE_CACHE (f)->scaling_col_width = iwidth;
+	  FRAME_IMAGE_CACHE (f)->scaling_device_scale
+	    = FRAME_IMAGE_SCALE_KEY (f);
 	  /* Clean F's image cache of images whose values are derived
 	     from the font width.  */
 	  clear_image_cache (f, Qauto);
@@ -6162,7 +6168,7 @@ gui_set_scroll_bar_height (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 }
 
 #if (defined HAVE_PGTK || defined HAVE_NTGUI \
-     || defined HAVE_HAIKU || defined HAVE_NS)
+     || defined HAVE_HAIKU || defined HAVE_NS || defined HAVE_WAYLAND)
 void
 gui_set_alpha (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
 {
@@ -7240,7 +7246,7 @@ have changed.  */)
 #ifdef HAVE_WINDOW_SYSTEM
 
 # if (defined USE_GTK || defined HAVE_PGTK || defined HAVE_NS || defined HAVE_XINERAMA \
-      || defined HAVE_XRANDR)
+      || defined HAVE_XRANDR || defined HAVE_WAYLAND)
 void
 free_monitors (struct MonitorInfo *monitors, int n_monitors)
 {
@@ -7379,6 +7385,7 @@ syms_of_frame (void)
   DEFSYM (Qpgtk, "pgtk");
   DEFSYM (Qhaiku, "haiku");
   DEFSYM (Qandroid, "android");
+  DEFSYM (Qwayland, "wayland");
   DEFSYM (Qvisible, "visible");
   DEFSYM (Qbuffer_predicate, "buffer-predicate");
   DEFSYM (Qbuffer_list, "buffer-list");
@@ -7572,7 +7579,8 @@ Setting this variable does not affect existing frames, only new ones.  */);
 
   DEFVAR_LISP ("default-frame-scroll-bars", Vdefault_frame_scroll_bars,
 	       doc: /* Default position of vertical scroll bars on this window-system.  */);
-#if defined HAVE_WINDOW_SYSTEM && !defined HAVE_ANDROID
+#if (defined HAVE_WINDOW_SYSTEM && !defined HAVE_ANDROID \
+     && !defined HAVE_WAYLAND)
 #if defined (HAVE_NTGUI) || defined (NS_IMPL_COCOA) || (defined (USE_GTK) && defined (USE_TOOLKIT_SCROLL_BARS))
   /* MS-Windows, macOS, and GTK have scroll bars on the right by
      default.  */
@@ -7580,9 +7588,10 @@ Setting this variable does not affect existing frames, only new ones.  */);
 #else
   Vdefault_frame_scroll_bars = Qleft;
 #endif
-#else /* !HAVE_WINDOW_SYSTEM || HAVE_ANDROID */
+#else /* !HAVE_WINDOW_SYSTEM || HAVE_ANDROID || HAVE_WAYLAND */
+  /* Android and Wayland have no scroll bars.  */
   Vdefault_frame_scroll_bars = Qnil;
-#endif /* HAVE_WINDOW_SYSTEM && !HAVE_ANDROID */
+#endif /* HAVE_WINDOW_SYSTEM && !HAVE_ANDROID && !HAVE_WAYLAND */
 
   DEFVAR_BOOL ("scroll-bar-adjust-thumb-portion",
                scroll_bar_adjust_thumb_portion_p,

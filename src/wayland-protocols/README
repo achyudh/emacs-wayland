@@ -1,0 +1,22 @@
+Wayland protocol descriptions used by the native Wayland backend.
+
+These files are copied unchanged from wayland-protocols 1.50, the version
+in the nixpkgs revision pinned by the repository's flake.lock.  Each file
+carries its own copyright and license notice.  src/Makefile.in runs
+wayland-scanner on them at build time to produce the client headers and
+glue code; nothing generated is kept in the tree.
+
+  stable/xdg-shell/xdg-shell.xml
+  stable/viewporter/viewporter.xml
+  stable/presentation-time/presentation-time.xml
+  stable/tablet/tablet-v2.xml           (needed by cursor-shape-v1)
+  staging/fractional-scale/fractional-scale-v1.xml
+  staging/xdg-activation/xdg-activation-v1.xml
+  staging/cursor-shape/cursor-shape-v1.xml
+  unstable/xdg-decoration/xdg-decoration-unstable-v1.xml
+  unstable/primary-selection/primary-selection-unstable-v1.xml
+  unstable/text-input/text-input-unstable-v3.xml
+  unstable/xdg-output/xdg-output-unstable-v1.xml
+
+To update them, change the pin, copy the new versions here, and note the
+wayland-protocols version above.

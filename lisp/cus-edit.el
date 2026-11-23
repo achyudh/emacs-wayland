@@ -3750,6 +3750,10 @@ GNUstep or Macintosh OS Cocoa interface.")
 					   :sibling-args (:help-echo "\
 Pure-GTK interface.")
 					   pgtk)
+				    (const :format "Wayland "
+					   :sibling-args (:help-echo "\
+Native Wayland interface.")
+					   wayland)
                                     (const :format "Haiku "
 					   :sibling-args (:help-echo "\
 Haiku interface.")

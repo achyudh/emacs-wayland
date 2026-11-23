@@ -154,6 +154,13 @@ typedef Emacs_Pixmap XImagePtr;
 typedef XImagePtr XImagePtr_or_DC;
 #endif /* HAVE_PGTK */
 
+#ifdef HAVE_WAYLAND
+#include "waylandgui.h"
+typedef struct wayland_display_info Display_Info;
+typedef Emacs_Pixmap XImagePtr;
+typedef XImagePtr XImagePtr_or_DC;
+#endif /* HAVE_WAYLAND */
+
 #ifdef HAVE_HAIKU
 #include "haikugui.h"
 typedef struct haiku_display_info Display_Info;
@@ -1470,7 +1477,7 @@ struct glyph_string
   Emacs_GC *gc;
   HDC hdc;
 #endif
-#if defined (HAVE_PGTK)
+#if defined (HAVE_PGTK) || defined (HAVE_WAYLAND)
   Emacs_GC xgcv;
 #endif
 
@@ -3387,6 +3394,9 @@ struct image_cache
      will be scaled, which is 10 or FRAME_COLUMN_WIDTH of each frame
      assigned this image cache, whichever is greater.  */
   int scaling_col_width;
+
+  /* FRAME_IMAGE_SCALE_KEY of each frame assigned this image cache.  */
+  int scaling_device_scale;
 };
 
 /* Size of bucket vector of image caches.  Should be prime.  */

@@ -189,7 +189,8 @@ bool inhibit_window_system;
    data on the first attempt to change it inside asynchronous code.  */
 bool running_asynch_code;
 
-#if defined (HAVE_X_WINDOWS) || defined (HAVE_PGTK) || defined (HAVE_NS)
+#if defined (HAVE_X_WINDOWS) || defined (HAVE_PGTK) || defined (HAVE_NS) \
+  || defined (HAVE_WAYLAND)
 /* If true, -d was specified, meaning we're using some window system.  */
 bool display_arg;
 #endif
@@ -2073,7 +2074,7 @@ Using an Emacs configured with --with-x-toolkit=lucid does not have this problem
   {
     int count_before = skip_args;
 
-#if defined (HAVE_X_WINDOWS) || defined (HAVE_PGTK)
+#if defined (HAVE_X_WINDOWS) || defined (HAVE_PGTK) || defined (HAVE_WAYLAND)
     char *displayname = 0;
 
     /* Skip any number of -d options, but only use the last one.  */
@@ -2424,6 +2425,13 @@ Using an Emacs configured with --with-x-toolkit=lucid does not have this problem
       syms_of_fontset ();
       syms_of_xsettings ();
 #endif /* HAVE_PGTK */
+#ifdef HAVE_WAYLAND
+      syms_of_waylandterm ();
+      syms_of_waylandfns ();
+      syms_of_waylandselect ();
+      syms_of_waylandim ();
+      syms_of_fontset ();
+#endif /* HAVE_WAYLAND */
 #ifdef HAVE_HAIKU
       syms_of_haikuterm ();
       syms_of_haikufns ();

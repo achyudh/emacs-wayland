@@ -33,6 +33,9 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #ifdef HAVE_PGTK
 # include "pgtkterm.h"
 #endif
+#ifdef HAVE_WAYLAND
+# include "waylandterm.h"
+#endif
 
 /* Fringe bitmaps are represented in three different ways:
 
@@ -623,6 +626,15 @@ draw_fringe_bitmap_1 (struct window *w, struct glyph_row *row, int left_p, int o
   p.wd = fb->width;
 
   p.h = fb->height;
+#ifdef HAVE_WAYLAND
+  if (FRAME_WAYLAND_P (f))
+    {
+      int scale = wayland_fixed_scale (f);
+      p.wd *= scale;
+      p.h *= scale;
+      period *= scale;
+    }
+#endif
   p.dh = (period > 0 ? (p.y % period) : 0);
   p.h -= p.dh;
 
@@ -1430,7 +1442,8 @@ If BITMAP overrides a standard fringe bitmap, the original bitmap is restored.  
    On W32 and MAC (little endian), there's no need to do this.
 */
 
-#if defined (HAVE_X_WINDOWS) || defined (HAVE_PGTK) || defined (HAVE_ANDROID)
+#if defined (HAVE_X_WINDOWS) || defined (HAVE_PGTK) || defined (HAVE_ANDROID) \
+  || defined (HAVE_WAYLAND)
 static const unsigned char swap_nibble[16] =
   {
     0x0, 0x8, 0x4, 0xc,           /* 0000 1000 0100 1100 */
@@ -1495,7 +1508,7 @@ init_fringe_bitmap (int which, struct fringe_bitmap *fb, int once_p)
 #endif /* not USE_CAIRO */
 #endif /* HAVE_X_WINDOWS || HAVE_ANDROID */
 
-#if !defined(HAVE_X_WINDOWS) && defined (HAVE_PGTK)
+#if !defined(HAVE_X_WINDOWS) && (defined (HAVE_PGTK) || defined (HAVE_WAYLAND))
       unsigned short *bits = fb->bits;
       int j;
 
@@ -1512,7 +1525,7 @@ init_fringe_bitmap (int which, struct fringe_bitmap *fb, int once_p)
 	  *bits++ = (b >> (16 - fb->width));
 #endif
 	}
-#endif /* !HAVE_X_WINDOWS && HAVE_PGTK */
+#endif /* !HAVE_X_WINDOWS && (HAVE_PGTK || HAVE_WAYLAND) */
 
 #ifdef HAVE_NTGUI
       unsigned short *bits = fb->bits;

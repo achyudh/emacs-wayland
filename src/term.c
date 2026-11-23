@@ -5171,19 +5171,13 @@ delete_tty (struct terminal *terminal)
    (Qinner_edges).  Any other value means to return the geometry as
    returned by Fx_frame_geometry.  */
 
-static Lisp_Object
-tty_frame_geometry (Lisp_Object frame, Lisp_Object attribute)
+Lisp_Object
+frame_geometry_without_wm (struct frame *f, Lisp_Object attribute,
+			   int outer_left, int outer_top)
 {
-  struct frame *f = decode_live_frame (frame);
-  if (FRAME_INITIAL_P (f) || !FRAME_TTY (f))
-    return Qnil;
-
   int native_width = f->pixel_width;
   int native_height = f->pixel_height;
 
-  eassert (FRAME_PARENT_FRAME (f) || (f->left_pos == 0 && f->top_pos == 0));
-  int outer_left = f->left_pos;
-  int outer_top = f->top_pos;
   int outer_right = outer_left + native_width;
   int outer_bottom = outer_top + native_height;
 
@@ -5254,6 +5248,16 @@ tty_frame_geometry (Lisp_Object frame, Lisp_Object attribute)
 			make_fixnum (internal_border_width)));
 }
 
+static Lisp_Object
+tty_frame_geometry (Lisp_Object frame, Lisp_Object attribute)
+{
+  struct frame *f = decode_live_frame (frame);
+  if (FRAME_INITIAL_P (f) || !FRAME_TTY (f))
+    return Qnil;
+  eassert (FRAME_PARENT_FRAME (f) || (f->left_pos == 0 && f->top_pos == 0));
+  return frame_geometry_without_wm (f, attribute, f->left_pos, f->top_pos);
+}
+
 DEFUN ("tty-frame-geometry", Ftty_frame_geometry, Stty_frame_geometry, 0, 1, 0,
        doc: /* Return geometric attributes of terminal frame FRAME.
 See also `frame-geometry'.  */)
@@ -5317,6 +5321,7 @@ tty_display_dimension (Lisp_Object frame, int *width, int *height)
     case output_pgtk:
     case output_haiku:
     case output_android:
+    case output_wayland:
     default:
       emacs_abort ();
       break;

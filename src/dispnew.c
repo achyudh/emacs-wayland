@@ -4891,11 +4891,26 @@ update_text_area (struct window *w, struct glyph_row *updated_row, int vpos,
 	      bool skip_first_p = !can_skip_p;
 
 	      /* Find the next glyph that's equal again.  */
-	      while (i < stop
-		     && (skip_first_p
-			 || !GLYPH_EQUAL_P (desired_glyph, current_glyph))
-		     && x == current_x)
+	      while (i < stop && x == current_x)
 		{
+		  if (!skip_first_p
+		      && GLYPH_EQUAL_P (desired_glyph, current_glyph))
+		    {
+		      if (!overlapping_glyphs_p || i == start_hpos
+			  || !FRAME_WAYLAND_P (XFRAME (w->frame)))
+			break;
+
+		      /* Draw the next cell in this pass if an old
+			 overhang reaches it.  Cairo can cull a glyph
+			 clipped to just its LCD filter edge.  */
+		      int left, right;
+		      rif->get_glyph_overhangs (current_glyph - 1,
+						XFRAME (w->frame),
+						&left, &right);
+		      if (!right)
+			break;
+		    }
+
 		  x += desired_glyph->pixel_width;
 		  current_x += current_glyph->pixel_width;
 		  ++desired_glyph, ++current_glyph, ++i;
@@ -7295,6 +7310,16 @@ init_display_interactive (void)
   if (!inhibit_window_system && !will_dump_p ())
     {
       Vinitial_window_system = Qpgtk;
+      return;
+    }
+#endif
+
+#ifdef HAVE_WAYLAND
+  if (!inhibit_window_system && !will_dump_p ()
+      && (display_arg || getenv ("WAYLAND_DISPLAY")
+	  || getenv ("WAYLAND_SOCKET")))
+    {
+      Vinitial_window_system = Qwayland;
       return;
     }
 #endif

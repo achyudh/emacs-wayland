@@ -2853,6 +2853,9 @@ If FRAME is nil or not given, use the selected frame."
      ((eq type 'w32) (w32-menu-bar-open frame))
      ((eq type 'haiku) (haiku-menu-bar-open frame))
      ((eq type 'pgtk) (pgtk-menu-bar-open frame))
+     ((eq type 'wayland)
+      (with-selected-frame (or frame (selected-frame))
+        (tmm-menubar)))
      ((and (null tty-menu-open-use-tmm)
 	   (not (zerop (or (frame-parameter frame 'menu-bar-lines) 0))))
       ;; Make sure the menu bar is up to date.  One situation where

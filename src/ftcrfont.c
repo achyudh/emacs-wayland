@@ -28,6 +28,8 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "haikuterm.h"
 #include "haiku_support.h"
 #include "termchar.h"
+#elif defined HAVE_WAYLAND
+#include "waylandterm.h"
 #else
 #include "pgtkterm.h"
 #endif
@@ -108,6 +110,25 @@ ftcrfont_glyph_extents (struct font *font,
 	 small to accommodate a glyph with a higher phys_ascent.  */
       cache->ascent = ceil (- extents.y_bearing - 1.0 / 256);
       cache->descent = ceil (extents.height + extents.y_bearing);
+#ifdef HAVE_WAYLAND
+      /* The LCD filter can color a pixel beyond either side of the
+	 glyph's ink extents.  Include it in overlap detection so a
+	 partial redisplay redraws the affected neighbors.  */
+      if (extents.width && extents.height)
+	{
+	  int rgba = ftcrfont_info->subpixel_order;
+	  if (rgba == FC_RGBA_RGB || rgba == FC_RGBA_BGR)
+	    {
+	      cache->lbearing--;
+	      cache->rbearing++;
+	    }
+	  else if (rgba == FC_RGBA_VRGB || rgba == FC_RGBA_VBGR)
+	    {
+	      cache->ascent++;
+	      cache->descent++;
+	    }
+	}
+#endif
     }
 
   if (metrics)
@@ -215,6 +236,13 @@ ftcrfont_open (struct frame *f, Lisp_Object entity, int pixel_size)
 
   ftcrfont_info = (struct font_info *) font;
   ftcrfont_info->cr_scaled_font = scaled_font;
+#ifdef HAVE_WAYLAND
+  FcBool antialias = FcTrue;
+  int rgba = FC_RGBA_NONE;
+  FcPatternGetBool (match, FC_ANTIALIAS, 0, &antialias);
+  FcPatternGetInteger (match, FC_RGBA, 0, &rgba);
+  ftcrfont_info->subpixel_order = antialias ? rgba : FC_RGBA_NONE;
+#endif
 
   /* This means that there's no need of transformation.  */
   ftcrfont_info->matrix.xx = 0;
@@ -570,6 +598,56 @@ ftcrfont_variation_glyphs (struct font *font, int c, unsigned variations[256])
 }
 #endif	/* HAVE_OTF_GET_VARIATION_GLYPHS || HAVE_FT_FACE_GETCHARVARIANTINDEX */
 
+#ifdef HAVE_WAYLAND
+/* Cairo limits a glyph operation to the glyphs' ink boxes, but the LCD
+   filter colors a pixel beyond them.  When a run of glyphs is drawn
+   on its own, Cairo can then leave out such pixels inside the clip,
+   and draw ones outside it, where nothing erases them.  Add two copies
+   of an inked glyph of GLYPHS just outside the clip of CR, one above
+   and to the left, one below and to the right, so that the operation
+   covers the clip; their own pixels fall outside it.  Return the
+   number of glyphs added at GLYPHS[LEN].  */
+
+static int
+ftcrfont_add_lcd_margin (struct font_info *ftcrfont_info, cairo_t *cr,
+			 cairo_glyph_t *glyphs, int len)
+{
+  int rgba = ftcrfont_info->subpixel_order;
+  if (len == 0
+      || !(rgba == FC_RGBA_RGB || rgba == FC_RGBA_BGR
+	   || rgba == FC_RGBA_VRGB || rgba == FC_RGBA_VBGR))
+    return 0;
+
+  double x1, y1, x2, y2;
+  cairo_clip_extents (cr, &x1, &y1, &x2, &y2);
+  if (x1 >= x2 || y1 >= y2)
+    return 0;
+
+  /* A glyph without ink, such as a space, extends nothing.  */
+  cairo_text_extents_t ink;
+  int i;
+  for (i = 0; i < len; i++)
+    {
+      cairo_glyph_extents (cr, &glyphs[i], 1, &ink);
+      if (ink.width && ink.height)
+	break;
+    }
+  if (i == len)
+    return 0;
+
+  /* Keep the copies near the clip: Cairo drops glyphs farther than
+     ten times the font size from it.  */
+  double right = ink.x_bearing + ink.width;
+  double bottom = ink.y_bearing + ink.height;
+  glyphs[len] = glyphs[len + 1] = glyphs[i];
+  glyphs[len].x = x1 - right - 2;
+  glyphs[len].y = y1 - bottom - 2;
+  glyphs[len + 1].x = x2 - ink.x_bearing + 2;
+  glyphs[len + 1].y = y2 - ink.y_bearing + 2;
+  return 2;
+}
+#endif
+
 static int
 ftcrfont_draw (struct glyph_string *s,
                int from, int to, int x, int y, bool with_background)
@@ -598,6 +676,8 @@ ftcrfont_draw (struct glyph_string *s,
 #ifndef USE_BE_CAIRO
 #ifdef HAVE_X_WINDOWS
   cr = x_begin_cr_clip (f, s->gc);
+#elif defined HAVE_WAYLAND
+  cr = wayland_begin_cr_clip (f);
 #else
   cr = pgtk_begin_cr_clip (f);
 #endif
@@ -617,6 +697,11 @@ ftcrfont_draw (struct glyph_string *s,
 
   if (with_background)
     {
+#ifdef HAVE_WAYLAND
+      wayland_fill_cairo_rectangle (f, cr, s->xgcv.background,
+				    x, y - FONT_BASE (s->font),
+				    s->width, FONT_HEIGHT (s->font));
+#else
 #ifndef USE_BE_CAIRO
 #ifdef HAVE_X_WINDOWS
       x_set_cr_source_with_gc_background (f, s->gc, s->hl != DRAW_CURSOR);
@@ -634,9 +719,10 @@ ftcrfont_draw (struct glyph_string *s,
       cairo_rectangle (cr, x, y - FONT_BASE (s->font),
 		       s->width, FONT_HEIGHT (s->font));
       cairo_fill (cr);
+#endif
     }
 
-  glyphs = alloca (sizeof (cairo_glyph_t) * len);
+  glyphs = alloca (sizeof (cairo_glyph_t) * (len + 2));
   for (i = 0; i < len; i++)
     {
       glyphs[i].index = s->char2b[from + i];
@@ -649,6 +735,8 @@ ftcrfont_draw (struct glyph_string *s,
 #ifndef USE_BE_CAIRO
 #ifdef HAVE_X_WINDOWS
   x_set_cr_source_with_gc_foreground (f, s->gc, false);
+#elif defined HAVE_WAYLAND
+  wayland_set_cr_source_with_color (f, s->xgcv.foreground, false);
 #else
   pgtk_set_cr_source_with_color (f, s->xgcv.foreground, false);
 #endif
@@ -660,10 +748,16 @@ ftcrfont_draw (struct glyph_string *s,
 			BLUE_FROM_ULONG (col) / 255.0);
 #endif
   cairo_set_scaled_font (cr, ftcrfont_info->cr_scaled_font);
+#ifdef HAVE_WAYLAND
+  wayland_damage_glyphs (f, cr, glyphs, len);
+  len += ftcrfont_add_lcd_margin (ftcrfont_info, cr, glyphs, len);
+#endif
   cairo_show_glyphs (cr, glyphs, len);
 #ifndef USE_BE_CAIRO
 #ifdef HAVE_X_WINDOWS
   x_end_cr_clip (f);
+#elif defined HAVE_WAYLAND
+  wayland_end_cr_clip (f);
 #else
   pgtk_end_cr_clip (f);
 #endif

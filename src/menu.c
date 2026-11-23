@@ -167,7 +167,7 @@ ensure_menu_items (int items)
     }
 }
 
-#if defined HAVE_EXT_MENU_BAR || defined HAVE_ANDROID
+#if defined HAVE_EXT_MENU_BAR || defined HAVE_ANDROID || defined HAVE_WAYLAND
 
 /* Begin a submenu.  */
 
@@ -191,7 +191,7 @@ push_submenu_end (void)
   menu_items_submenu_depth--;
 }
 
-#endif /* HAVE_EXT_MENU_BAR || HAVE_ANDROID */
+#endif
 
 /* Indicate boundary between left and right.  */
 
@@ -421,8 +421,8 @@ single_menu_item (Lisp_Object key, Lisp_Object item, Lisp_Object dummy, void *sk
 
 #if defined (USE_X_TOOLKIT) || defined (USE_GTK) || defined (HAVE_NS)	\
   || defined (HAVE_NTGUI) || defined (HAVE_HAIKU) || defined (HAVE_PGTK) \
-  || defined (HAVE_ANDROID)
-  /* Display a submenu using the toolkit.  */
+  || defined (HAVE_ANDROID) || defined (HAVE_WAYLAND)
+  /* Preserve the submenu hierarchy for graphical and minibuffer menus.  */
   if (FRAME_WINDOW_P (XFRAME (Vmenu_updating_frame))
       && ! (NILP (map) || NILP (enabled)))
     {
@@ -1408,11 +1408,26 @@ x_popup_menu_1 (Lisp_Object position, Lisp_Object menu)
      such a frame cannot display menus.  */
   if (!FRAME_INITIAL_P (f))
     {
-      if (FRAME_TERMCAP_P (f) && !NILP (Vx_popup_menu_function))
+      /* A display without popup menus of its own (the native Wayland
+	 backend) uses `x-popup-menu-function' like a text terminal.  */
+      if ((FRAME_TERMCAP_P (f) || !FRAME_TERMINAL (f)->menu_show_hook)
+	  && !NILP (Vx_popup_menu_function))
 	selection  = calln (Vx_popup_menu_function, position, menu);
-      else
+#ifdef HAVE_WAYLAND
+      else if (FRAME_WAYLAND_P (f))
+	{
+	  Lisp_Object frame;
+	  XSETFRAME (frame, f);
+	  selection = calln (Qwayland__popup_menu, frame, title,
+			     wayland_menu_choices (menuflags),
+			     menuflags & MENU_FOR_CLICK ? Qt : Qnil);
+	}
+#endif
+      else if (FRAME_TERMINAL (f)->menu_show_hook)
 	selection = FRAME_TERMINAL (f)->menu_show_hook (f, xpos, ypos, menuflags,
 							title, &error_name);
+      else
+	error_name = "This display has no popup menus";
     }
 
   unbind_to (specpdl_count, Qnil);
@@ -1629,7 +1644,8 @@ won't be run if `x-popup-menu' fails or returns for some other reason
   DEFVAR_LISP ("x-popup-menu-function", Vx_popup_menu_function,
 	       doc: /* Function to call to pop up a menu.
  The function is called like `x-popup-menu'.  This is currently only
- used for frames on text terminals.  */);
+ used for frames on text terminals, and on frames whose display has no
+ popup menus of its own.  */);
   Vx_popup_menu_function = Qnil;
 
   defsubr (&Sx_popup_menu);

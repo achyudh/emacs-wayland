@@ -46,7 +46,7 @@ process.")
     image/jpeg
     ;; These are files copied/cut to the clipboard from a file manager
     ;; in a GNU/Linux and/or BSD environment.
-    ,@(when (memq window-system '(x pgtk))
+    ,@(when (memq window-system '(x pgtk wayland))
         (list (lambda (mimetypes)
                 (ensure-list
                  (seq-find (lambda (type)

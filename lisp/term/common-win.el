@@ -154,7 +154,10 @@ On X, the display name of individual X frames is recorded in the
   ;; Note that this isn't completely correct, since Emacs can use
   ;; multiple displays.  However, there is no way to tell an already
   ;; running subshell which display the user is currently typing on.
-  (setenv "DISPLAY" x-display-name))
+  (if (eq window-system 'wayland)
+      (when x-display-name
+        (setenv "WAYLAND_DISPLAY" x-display-name))
+    (setenv "DISPLAY" x-display-name)))
 
 (defun x-handle-args (args)
   "Process the X (or Nextstep) related command line options in ARGS.

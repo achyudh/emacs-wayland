@@ -8771,8 +8771,11 @@ set_window_scroll_bars (struct window *w, Lisp_Object width,
 			Lisp_Object vertical_type, Lisp_Object height,
 			Lisp_Object horizontal_type, Lisp_Object persistent)
 {
-  /* Do nothing on a tty.  */
-  if (!FRAME_WINDOW_P (WINDOW_XFRAME (w)))
+  /* Do nothing on a tty, or on a display without scroll bars (the
+     native Wayland backend), where nothing should reserve space for
+     them.  */
+  if (!FRAME_WINDOW_P (WINDOW_XFRAME (w))
+      || !FRAME_TERMINAL (WINDOW_XFRAME (w))->set_vertical_scroll_bar_hook)
     return NULL;
   else
     {

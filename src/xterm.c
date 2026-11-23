@@ -32859,7 +32859,7 @@ always uses gtk_window_move and ignores the value of this variable.  */);
   DEFVAR_LISP ("x-scroll-event-delta-factor", Vx_scroll_event_delta_factor,
 	       doc: /* A scale to apply to pixel deltas reported in scroll events.
 This option is only effective when Emacs is built with XInput 2
-support. */);
+support, and on the native Wayland backend. */);
   Vx_scroll_event_delta_factor = make_float (1.0);
 
   DEFVAR_BOOL ("x-gtk-use-native-input", x_gtk_use_native_input,

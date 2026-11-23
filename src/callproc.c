@@ -91,6 +91,9 @@ extern char **environ;
 #ifdef HAVE_PGTK
 #include "pgtkterm.h"
 #endif
+#ifdef HAVE_WAYLAND
+#include "waylandterm.h"
+#endif
 
 #ifdef HAVE_ANDROID
 #include "android.h"
@@ -1742,7 +1745,7 @@ getenv_internal (const char *var, ptrdiff_t varlen, char **value,
   /* For DISPLAY try to get the values from the frame or the initial env.  */
   if (strcmp (var, "DISPLAY") == 0)
     {
-#ifndef HAVE_PGTK
+#if !defined HAVE_PGTK && !defined HAVE_WAYLAND
       Lisp_Object display
 	= Fframe_parameter (NILP (frame) ? selected_frame : frame, Qdisplay);
       if (STRINGP (display))
@@ -1751,7 +1754,7 @@ getenv_internal (const char *var, ptrdiff_t varlen, char **value,
 	  *valuelen = SBYTES (display);
 	  return 1;
 	}
-#endif /* !HAVE_PGTK */
+#endif /* !HAVE_PGTK && !HAVE_WAYLAND */
       /* If still not found, Look for DISPLAY in Vinitial_environment.  */
       if (getenv_internal_1 (var, varlen, value, valuelen,
 			     Vinitial_environment))
@@ -1889,6 +1892,11 @@ make_environment_block (Lisp_Object current_dir)
 		       "GdkX11Display"))
 	  tmp = Qnil;
 #endif /* HAVE_PGTK */
+#ifdef HAVE_WAYLAND
+	/* A Wayland display name is not an X DISPLAY.  */
+	if (FRAME_WAYLAND_P (SELECTED_FRAME ()))
+	  tmp = Qnil;
+#endif /* HAVE_WAYLAND */
 
 	if (!STRINGP (tmp) && CONSP (Vinitial_environment))
 	  /* If still not found, Look for DISPLAY in Vinitial_environment.  */

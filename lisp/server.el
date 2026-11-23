@@ -1462,9 +1462,11 @@ The following commands are accepted by the client:
             ;; environment variable.  Copy the token to the
             ;; `activation-token' frame parameter of the server frame
             ;; for the pgtk_raise_frame function.  (Bug#80926)
-            (when (and (fboundp #'pgtk-backend-display-class)
-                       (display-graphic-p frame)
-                       (equal "GdkWaylandDisplay" (pgtk-backend-display-class)))
+            (when (or (eq (window-system frame) 'wayland)
+                      (and (fboundp #'pgtk-backend-display-class)
+                           (display-graphic-p frame)
+                           (equal "GdkWaylandDisplay"
+                                  (pgtk-backend-display-class))))
 	      (if-let* ((token (getenv-internal "XDG_ACTIVATION_TOKEN"
                                                 (process-get proc 'env))))
 		  (set-frame-parameter frame 'activation-token token)

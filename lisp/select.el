@@ -230,11 +230,11 @@ decoded.  If `gui-get-selection' signals an error, return nil."
   (unless (and gui-last-cut-in-clipboard
                ;; `gui-backend-selection-owner-p' might be unreliable on
                ;; some other window systems.
-               (memq window-system '(x haiku))
+               (memq window-system '(x haiku wayland))
                (eq type 'CLIPBOARD)
                ;; Should we unify this with gui--clipboard-selection-unchanged-p?
                (gui-backend-selection-owner-p type))
-    (let ((request-type (if (memq window-system '(x pgtk haiku))
+    (let ((request-type (if (memq window-system '(x pgtk haiku wayland))
                             (or x-select-request-type
                                 '(UTF8_STRING COMPOUND_TEXT STRING text/plain\;charset=utf-8))
                           'STRING))

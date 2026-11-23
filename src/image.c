@@ -166,6 +166,10 @@ typedef struct ns_bitmap_record Bitmap_Record;
 typedef struct pgtk_bitmap_record Bitmap_Record;
 #endif /* HAVE_PGTK */
 
+#ifdef HAVE_WAYLAND
+typedef struct wayland_bitmap_record Bitmap_Record;
+#endif /* HAVE_WAYLAND */
+
 #if (defined HAVE_X_WINDOWS \
      && ! (defined HAVE_NTGUI || defined USE_CAIRO || defined HAVE_NS))
 /* W32_TODO : Color tables on W32.  */
@@ -516,7 +520,7 @@ image_reference_bitmap (struct frame *f, ptrdiff_t id)
   ++FRAME_DISPLAY_INFO (f)->bitmaps[id - 1].refcount;
 }
 
-#ifdef HAVE_PGTK
+#if defined HAVE_PGTK || defined HAVE_WAYLAND
 
 /* Create a Cairo pattern from the bitmap BITS, which should be WIDTH
    and HEIGHT in size.  BITS's fill order is LSB first, meaning that
@@ -678,7 +682,7 @@ image_create_bitmap_from_data (struct frame *f, char *bits,
       return -1;
 #endif
 
-#ifdef HAVE_PGTK
+#if defined HAVE_PGTK || defined HAVE_WAYLAND
   cairo_pattern_t *pattern;
 
   pattern = image_bitmap_to_cr_pattern (bits, width, height);
@@ -714,7 +718,7 @@ image_create_bitmap_from_data (struct frame *f, char *bits,
   dpyinfo->bitmaps[id - 1].depth = 1;
 #endif
 
-#ifdef HAVE_PGTK
+#if defined HAVE_PGTK || defined HAVE_WAYLAND
   dpyinfo->bitmaps[id - 1].depth = 1;
   dpyinfo->bitmaps[id - 1].pattern = pattern;
 #endif
@@ -765,7 +769,7 @@ typedef struct android_fd_or_asset image_fd;
 typedef int image_fd;
 #endif /* defined HAVE_ANDROID && !defined ANDROID_STUBIFY */
 
-#if defined HAVE_HAIKU || defined HAVE_NS || defined HAVE_PGTK	\
+#if defined HAVE_HAIKU || defined HAVE_NS || defined HAVE_PGTK || defined HAVE_WAYLAND	\
   || defined HAVE_ANDROID || defined HAVE_NTGUI
 static char *slurp_file (image_fd, ptrdiff_t *);
 static Lisp_Object image_find_image_fd (Lisp_Object, image_fd *);
@@ -872,7 +876,7 @@ image_create_bitmap_from_file (struct frame *f, Lisp_Object file)
   return id;
 #endif
 
-#ifdef HAVE_PGTK
+#if defined HAVE_PGTK || defined HAVE_WAYLAND
   ptrdiff_t id, size;
   int fd, width, height, rc;
   char *contents, *data;
@@ -1154,7 +1158,7 @@ free_bitmap_record (Display_Info *dpyinfo, Bitmap_Record *bm)
   ns_release_object (bm->img);
 #endif
 
-#ifdef HAVE_PGTK
+#if defined HAVE_PGTK || defined HAVE_WAYLAND
   if (bm->pattern != NULL)
     cairo_pattern_destroy (bm->pattern);
 #endif
@@ -1380,7 +1384,7 @@ struct image_type
 #endif
 #if defined HAVE_RSVG || defined HAVE_PNG || defined HAVE_GIF || \
   defined HAVE_TIFF || defined HAVE_JPEG || defined HAVE_XPM || \
-  defined HAVE_NS || defined HAVE_HAIKU || defined HAVE_PGTK || \
+  defined HAVE_NS || defined HAVE_HAIKU || defined HAVE_PGTK || defined HAVE_WAYLAND || \
   defined HAVE_WEBP || defined HAVE_ANDROID
 # ifdef WINDOWSNT
 #  define IMAGE_TYPE_INIT(f) f
@@ -2257,8 +2261,9 @@ make_image_cache (void)
   c->used = c->refcount = 0;
   c->images = xmalloc (c->size * sizeof *c->images);
   c->buckets = xzalloc (IMAGE_CACHE_BUCKETS_SIZE * sizeof *c->buckets);
-  /* This value should never be encountered.  */
+  /* These values should never be encountered.  */
   c->scaling_col_width = -1;
+  c->scaling_device_scale = -1;
   return c;
 }
 
@@ -2756,6 +2761,10 @@ image_compute_scale (struct frame *f, Lisp_Object spec, struct image *img)
 {
   double scale = 1;
   Lisp_Object value = image_spec_value (spec, QCscale, NULL);
+  /* Factors are relative to logical pixels, so the column width is
+     measured in them and the result converted to F's pixels.  */
+  double device_scale = FRAME_IMAGE_DEVICE_SCALE (f);
+  double column_width = FRAME_COLUMN_WIDTH (f) / device_scale;
 
   if (EQ (value, Qdefault))
     {
@@ -2772,8 +2781,7 @@ image_compute_scale (struct frame *f, Lisp_Object spec, struct image *img)
 	  if (img)
 	    img->dependencies = Fcons (Qauto, img->dependencies);
 
-	  scale = (FRAME_COLUMN_WIDTH (f) > 10
-		   ? (FRAME_COLUMN_WIDTH (f) / 10.0f) : 1);
+	  scale = column_width > 10 ? (float) column_width / 10.0f : 1;
 	}
       else if (NUMBERP (sval))
 	scale = XFLOATINT (sval);
@@ -2793,6 +2801,15 @@ image_compute_scale (struct frame *f, Lisp_Object spec, struct image *img)
       double dval = XFLOATINT (value);
       if (0 <= dval)
 	scale = dval;
+    }
+
+  if (device_scale != 1)
+    {
+      scale *= device_scale;
+      /* The size now depends on F's scale, so these images must be
+	 cleared along with the font-dependent ones.  */
+      if (img && NILP (Fmemq (Qauto, img->dependencies)))
+	img->dependencies = Fcons (Qauto, img->dependencies);
     }
 
   if (img)
@@ -5937,7 +5954,7 @@ examples.  */)
 			      XPM images
  ***********************************************************************/
 
-#if defined (HAVE_XPM) || defined (HAVE_NS) || defined (HAVE_PGTK) \
+#if defined (HAVE_XPM) || defined (HAVE_NS) || defined (HAVE_PGTK) || defined (HAVE_WAYLAND) \
   || defined (HAVE_ANDROID)
 
 static bool xpm_image_p (Lisp_Object object);
@@ -5990,7 +6007,7 @@ enum xpm_keyword_index
 };
 
 #if defined HAVE_XPM || defined HAVE_NS || defined HAVE_HAIKU	\
-  || defined HAVE_PGTK || defined HAVE_ANDROID
+  || defined HAVE_PGTK || defined HAVE_WAYLAND || defined HAVE_ANDROID
 /* Vector of image_keyword structures describing the format
    of valid XPM image specifications.  */
 
@@ -6231,7 +6248,7 @@ init_xpm_functions (void)
 #endif /* WINDOWSNT */
 
 #if defined HAVE_XPM || defined HAVE_NS || defined HAVE_HAIKU	\
-  || defined HAVE_PGTK || defined HAVE_ANDROID
+  || defined HAVE_PGTK || defined HAVE_WAYLAND || defined HAVE_ANDROID
 /* Value is true if COLOR_SYMBOLS is a valid color symbols list
    for XPM images.  Such a list must consist of conses whose car and
    cdr are strings.  */
@@ -6642,7 +6659,7 @@ xpm_load (struct frame *f, struct image *img)
 #if (defined USE_CAIRO && defined HAVE_XPM)	\
   || (defined HAVE_NS && !defined HAVE_XPM)	\
   || (defined HAVE_HAIKU && !defined HAVE_XPM)  \
-  || (defined HAVE_PGTK && !defined HAVE_XPM)	\
+  || ((defined HAVE_PGTK || defined HAVE_WAYLAND) && !defined HAVE_XPM)	\
   || (defined HAVE_ANDROID && !defined HAVE_XPM)
 
 /* XPM support functions for NS, Haiku and Android where libxpm is not
@@ -13487,7 +13504,7 @@ static struct image_type const image_types[] =
    IMAGE_TYPE_INIT (init_jpeg_functions) },
 #endif
 #if defined HAVE_XPM || defined HAVE_NS || defined HAVE_HAIKU	\
-  || defined HAVE_PGTK || defined HAVE_ANDROID
+  || defined HAVE_PGTK || defined HAVE_WAYLAND || defined HAVE_ANDROID
  { SYMBOL_INDEX (Qxpm), xpm_image_p, xpm_load, image_clear_image,
    IMAGE_TYPE_INIT (init_xpm_functions) },
 #endif
@@ -13662,7 +13679,7 @@ non-numeric, there is no explicit limit on the size of images.  */);
   add_image_type (Qxbm);
 
 #if defined (HAVE_XPM) || defined (HAVE_NS) \
-  || defined (HAVE_HAIKU) || defined (HAVE_PGTK) \
+  || defined (HAVE_HAIKU) || defined (HAVE_PGTK) || defined (HAVE_WAYLAND) \
   || defined (HAVE_ANDROID)
   DEFSYM (Qxpm, "xpm");
   add_image_type (Qxpm);

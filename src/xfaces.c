@@ -247,9 +247,9 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #define GCGraphicsExposures 0
 #endif /* HAVE_NS */
 
-#ifdef HAVE_PGTK
+#if defined HAVE_PGTK || defined HAVE_WAYLAND
 #define GCGraphicsExposures 0
-#endif /* HAVE_PGTK */
+#endif /* HAVE_PGTK || HAVE_WAYLAND */
 
 #ifdef HAVE_HAIKU
 #define GCGraphicsExposures 0
@@ -591,8 +591,8 @@ x_free_gc (struct frame *f, Emacs_GC *gc)
 }
 #endif  /* HAVE_NS */
 
-#ifdef HAVE_PGTK
-/* PGTK emulation of GCs */
+#if defined HAVE_PGTK || defined HAVE_WAYLAND
+/* PGTK emulation of GCs, shared by the native Wayland backend */
 
 static Emacs_GC *
 x_create_gc (struct frame *f,
@@ -645,6 +645,7 @@ struct image_cache *
 share_image_cache (struct frame *f)
 {
   int width = max (10, FRAME_COLUMN_WIDTH (f));
+  int device_scale = FRAME_IMAGE_SCALE_KEY (f);
   Lisp_Object tail, frame;
   struct image_cache *cache;
 
@@ -654,12 +655,14 @@ share_image_cache (struct frame *f)
 
       if (FRAME_TERMINAL (x) == FRAME_TERMINAL (f)
 	  && FRAME_IMAGE_CACHE (x)
-	  && FRAME_IMAGE_CACHE (x)->scaling_col_width == width)
+	  && FRAME_IMAGE_CACHE (x)->scaling_col_width == width
+	  && FRAME_IMAGE_CACHE (x)->scaling_device_scale == device_scale)
 	return FRAME_IMAGE_CACHE (x);
     }
 
   cache = make_image_cache ();
   cache->scaling_col_width = width;
+  cache->scaling_device_scale = device_scale;
   return cache;
 }
 

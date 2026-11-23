@@ -609,7 +609,7 @@ decode_options (int argc, char **argv)
     }
 
   /* If the -c option is used (without -t) and no --display argument
-     is provided, try $DISPLAY.
+     is provided, use the window system's display environment variable.
      Without the -c option, we used to set 'display' to $DISPLAY by
      default, but this changed the default behavior and is sometimes
      inconvenient.  So we force users to use "--display $DISPLAY" if
@@ -632,12 +632,14 @@ decode_options (int argc, char **argv)
       alt_display = "be";
 #endif /* NS_IMPL_COCOA */
 
-#ifdef HAVE_PGTK
+#if defined HAVE_WAYLAND || defined HAVE_PGTK
       display = egetenv ("WAYLAND_DISPLAY");
+# ifdef HAVE_PGTK
       alt_display = egetenv ("DISPLAY");
-#else /* !HAVE_PGTK */
+# endif /* HAVE_PGTK */
+#else /* !HAVE_WAYLAND && !HAVE_PGTK */
       display = egetenv ("DISPLAY");
-#endif /* HAVE_PGTK */
+#endif /* HAVE_WAYLAND || HAVE_PGTK */
 #else /* HAVE_ANDROID */
       /* Disregard the DISPLAY environment variable under Android.
          Several terminal emulator programs furnish their own X
@@ -2229,6 +2231,18 @@ main (int argc, char **argv)
           send_to_emacs (emacs_socket, " ");
         }
     }
+#ifdef HAVE_WAYLAND
+  else
+    for (char *const *e = environ; *e; e++)
+      if (strncmp (*e, "XDG_ACTIVATION_TOKEN=",
+		   sizeof "XDG_ACTIVATION_TOKEN=" - 1) == 0)
+	{
+	  send_to_emacs (emacs_socket, "-env ");
+	  quote_argument (emacs_socket, *e);
+	  send_to_emacs (emacs_socket, " ");
+	  break;
+	}
+#endif
   send_to_emacs (emacs_socket, "-dir ");
   if (tramp_prefix)
     quote_argument (emacs_socket, tramp_prefix);

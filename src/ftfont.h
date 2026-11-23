@@ -76,6 +76,9 @@ struct font_info
   /* Font metrics cache.  */
   struct font_metrics **metrics;
   short metrics_nrows;
+#ifdef HAVE_WAYLAND
+  int subpixel_order;		/* FC_RGBA_* of the matched pattern.  */
+#endif
   /* Glyph codes of characters already looked up, or NULL.  */
   struct ftcrfont_glyph_code *glyph_codes;
 #else

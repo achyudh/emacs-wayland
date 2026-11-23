@@ -572,6 +572,8 @@ AC_ARG_WITH([ns],[AS_HELP_STRING([--with-ns],
 On by default on macOS.])],[],[with_ns=maybe])
 OPTION_DEFAULT_OFF([w32], [use native MS Windows GUI in a Cygwin build])
 OPTION_DEFAULT_OFF([pgtk], [use GTK to support window systems other than X])
+OPTION_DEFAULT_OFF([wayland],
+  [use the native Wayland backend, without a toolkit])
 
 OPTION_DEFAULT_ON([gpm],[don't use -lgpm for mouse support on a GNU/Linux console])
 OPTION_DEFAULT_IFAVAILABLE([dbus],[compile with D-Bus support])
@@ -2660,9 +2662,19 @@ if test "${with_pgtk}" = "yes"; then
   window_system=pgtk
 fi
 
+if test "${with_wayland}" = "yes"; then
+  if test "${with_pgtk}" = "yes" || test "${with_ns}" = "yes" \
+     || test "X${with_x}" = "Xyes"; then
+    AC_MSG_ERROR([--with-wayland cannot be combined with --with-pgtk,
+--with-ns or --with-x.])
+  fi
+  window_system=wayland
+fi
+
 if test "${ANDROID}" != "yes"; then
   AC_PATH_X
-  if test "$no_x" != yes && test "${with_pgtk}" != "yes"; then
+  if test "$no_x" != yes && test "${with_pgtk}" != "yes" \
+     && test "${with_wayland}" != "yes"; then
     window_system=x11
   fi
 fi
@@ -3120,6 +3132,7 @@ HAVE_X_WINDOWS=no
 HAVE_X11=no
 USE_X_TOOLKIT=none
 HAVE_PGTK=no
+HAVE_WAYLAND=no
 
 case "${window_system}" in
   x11 )
@@ -3165,9 +3178,17 @@ dnl use the toolkit if we have gtk, or X11R5 or newer.
   android )
     term_header=androidterm.h
   ;;
+  wayland )
+    term_header=waylandterm.h
+    USE_X_TOOLKIT=none
+    HAVE_WAYLAND=yes
+    AC_DEFINE([HAVE_WAYLAND], [1],
+      [Define to 1 if using the native Wayland backend.])
+  ;;
 esac
 
 AC_SUBST([HAVE_PGTK])
+AC_SUBST([HAVE_WAYLAND])
 
 if test "$window_system" = none && test "X$with_x" != "Xno"; then
    AC_CHECK_PROG([HAVE_XSERVER], [X], [true], [false])
@@ -3406,6 +3427,7 @@ HAVE_RSVG=no
 if test "${HAVE_X11}" = "yes" || test "${HAVE_NS}" = "yes" \
    || test "${opsys}" = "mingw32" || test "${HAVE_BE_APP}" = "yes" \
    || test "${window_system}" = "pgtk" \
+   || test "${window_system}" = "wayland" \
    || test "${REALLY_ANDROID}" = "yes"; then
   if test "${with_rsvg}" != "no"; then
     RSVG_REQUIRED=2.14.0
@@ -3434,6 +3456,7 @@ if test "${with_webp}" != "no"; then
    if test "${HAVE_X11}" = "yes" || test "${opsys}" = "mingw32" \
    || test "${HAVE_W32}" = "yes" || test "${HAVE_NS}" = "yes" \
    || test "${HAVE_BE_APP}" = "yes" || test "${HAVE_PGTK}" = "yes" \
+   || test "${HAVE_WAYLAND}" = "yes" \
    || test "${REALLY_ANDROID}" = "yes"; then
       WEBP_REQUIRED=0.6.0
       # Definitions from webp/decode.h are in libwebp, and those from
@@ -3532,6 +3555,7 @@ AC_SUBST([SQLITE3_CFLAGS])
 HAVE_IMAGEMAGICK=no
 if test "${HAVE_X11}" = "yes" || test "${HAVE_NS}" = "yes" || test "${HAVE_W32}" = "yes" || \
    test "${HAVE_BE_APP}" = "yes" || test "${window_system}" = "pgtk" || \
+   test "${window_system}" = "wayland" || \
    test "${REALLY_ANDROID}" = "yes"; then
   if test "${with_imagemagick}" != "no"; then
     if test -n "$BREW"; then
@@ -3746,6 +3770,18 @@ if test "$window_system" = "pgtk"; then
 fi
 AC_SUBST([PGTK_OBJ])
 AC_SUBST([PGTK_LIBS])
+
+## WAYLAND_OBJ goes into DOC; the generated protocol glue in
+## WAYLAND_PROTOCOL_OBJ is built in the build directory and does not.
+WAYLAND_OBJ=
+WAYLAND_PROTOCOL_OBJ=
+if test "$window_system" = "wayland"; then
+  WAYLAND_OBJ="waylandterm.o waylanddraw.o waylandfns.o"
+  WAYLAND_OBJ="$WAYLAND_OBJ waylandselect.o waylandim.o"
+  WAYLAND_PROTOCOL_OBJ='$(WAYLAND_PROTOCOLS:%=%-protocol.o)'
+fi
+AC_SUBST([WAYLAND_OBJ])
+AC_SUBST([WAYLAND_PROTOCOL_OBJ])
 
 AC_CHECK_FUNCS([malloc_trim])
 
@@ -4341,7 +4377,7 @@ if test "$with_xwidgets" != "no"; then
 fi
 AC_SUBST([XWIDGETS_OBJ])
 
-if test "$window_system" = "pgtk"; then
+if test "$window_system" = "pgtk" || test "$window_system" = "wayland"; then
   CAIRO_REQUIRED=1.12.0
   CAIRO_MODULE="cairo >= $CAIRO_REQUIRED"
   EMACS_CHECK_MODULES([CAIRO], [$CAIRO_MODULE])
@@ -4356,6 +4392,27 @@ if test "$window_system" = "pgtk"; then
   AC_SUBST([CAIRO_CFLAGS])
   AC_SUBST([CAIRO_LIBS])
 fi
+
+WAYLAND_SCANNER=
+WAYLAND_LIBS=
+if test "$window_system" = "wayland"; then
+  ## libwayland 1.23 is the first with wl_display_set_max_buffer_size,
+  ## which the backend uses to cap its outgoing buffer.
+  EMACS_CHECK_MODULES([WAYLAND_CLIENT],
+    [wayland-client >= 1.23 wayland-cursor xkbcommon >= 1.6 pixman-1])
+  if test "$HAVE_WAYLAND_CLIENT" != yes; then
+    AC_MSG_ERROR([The Wayland backend requires wayland-client 1.23 or later,
+wayland-cursor, xkbcommon 1.6 or later, and pixman.])
+  fi
+  CFLAGS="$CFLAGS $WAYLAND_CLIENT_CFLAGS"
+  WAYLAND_LIBS="$WAYLAND_CLIENT_LIBS"
+  AC_PATH_PROG([WAYLAND_SCANNER], [wayland-scanner])
+  if test -z "$WAYLAND_SCANNER"; then
+    AC_MSG_ERROR([wayland-scanner is required to build the Wayland backend.])
+  fi
+fi
+AC_SUBST([WAYLAND_SCANNER])
+AC_SUBST([WAYLAND_LIBS])
 
 if test "${HAVE_BE_APP}" = "yes"; then
   if test "${with_be_cairo}" != "no"; then
@@ -4511,7 +4568,7 @@ if test "${HAVE_X11}" = "yes"; then
     fi
   fi
 else # "${HAVE_X11}" != "yes"
-  if test $window_system = pgtk; then
+  if test $window_system = pgtk || test $window_system = wayland; then
     EMACS_CHECK_MODULES([FONTCONFIG], [fontconfig >= 2.2.0])
     EMACS_CHECK_MODULES([FREETYPE], [freetype2])
     if test "$HAVE_FONTCONFIG" != yes -o "$HAVE_FREETYPE" != yes; then
@@ -4551,6 +4608,7 @@ else
 fi
 if test "${HAVE_X11}" = "yes" && test "${HAVE_FREETYPE}" = "yes" \
         || test "$window_system" = "pgtk" \
+        || test "$window_system" = "wayland" \
         || test "${HAVE_W32}" = "yes" \
 	|| test "$REALLY_ANDROID" = "yes"; then
   if test "${with_harfbuzz}" != "no"; then
@@ -4754,6 +4812,7 @@ JPEG_CFLAGS=
 if test "${HAVE_X11}" = "yes" || test "${HAVE_W32}" = "yes" \
    || test "${HAVE_NS}" = "yes" || test "${HAVE_BE_APP}" = "yes" \
    || test "$window_system" = "pgtk" \
+        || test "$window_system" = "wayland" \
    || test "${REALLY_ANDROID}" = "yes"; then
   if test "${with_jpeg}" != "no"; then
     if test "${REALLY_ANDROID}" = "yes"; then
@@ -5175,6 +5234,7 @@ if test "${with_png}" != no; then
   elif test "${HAVE_X11}" = "yes" || test "${HAVE_W32}" = "yes" \
        || test "${HAVE_NS}" = "yes" || test "${HAVE_BE_APP}" = "yes" \
        || test "$window_system" = "pgtk" \
+        || test "$window_system" = "wayland" \
        || test "${REALLY_ANDROID}" = "yes"; then
     EMACS_CHECK_MODULES([PNG], [libpng >= 1.0.0])
     if test $HAVE_PNG = yes; then
@@ -5254,6 +5314,7 @@ if test "${opsys}" = "mingw32"; then
 elif test "${HAVE_X11}" = "yes" || test "${HAVE_W32}" = "yes" \
      || test "${HAVE_NS}" = "yes" || test "${HAVE_BE_APP}" = "yes" \
      || test "$window_system" = "pgtk" \
+        || test "$window_system" = "wayland" \
      || test "${REALLY_ANDROID}" = "yes"; then
   if test "${with_tiff}" != "no"; then
     if test "${REALLY_ANDROID}" != "yes"; then
@@ -5301,6 +5362,7 @@ if test "${opsys}" = "mingw32"; then
 elif test "${HAVE_X11}" = "yes" && test "${with_gif}" != "no" \
         || test "${HAVE_W32}" = "yes" || test "${HAVE_NS}" = "yes" \
 	|| test "${HAVE_BE_APP}" = "yes" || test "$window_system" = "pgtk" \
+        || test "$window_system" = "wayland" \
 	|| test "${REALLY_ANDROID}" = "yes" \
 	&& test "${with_gif}" != "no"; then
   AC_CHECK_HEADER([gif_lib.h],
@@ -7044,7 +7106,7 @@ if test "${HAVE_X_WINDOWS}" = "yes" ; then
   fi
 fi
 
-if test "${window_system}" = "pgtk"; then
+if test "${window_system}" = "pgtk" || test "${window_system}" = "wayland"; then
    FONT_OBJ="ftfont.o ftcrfont.o"
 fi
 
@@ -7428,7 +7490,7 @@ for opt in ACL BE_APP CAIRO DBUS FREETYPE GCONF GIF GLIB GMP GNUTLS GPM GSETTING
  HARFBUZZ IMAGEMAGICK JPEG LCMS2 LIBOTF LIBSELINUX LIBSYSTEMD LIBXML2 \
  M17N_FLT MODULES NATIVE_COMP NOTIFY NS OLDXMENU PDUMPER PGTK PNG RSVG SECCOMP \
  SOUND SQLITE3 THREADS TIFF TOOLKIT_SCROLL_BARS TREE_SITTER \
- UNEXEC WEBP X11 XAW3D XDBE XFT XIM XINERAMA XINPUT2 XPM XRANDR XWIDGETS \
+ UNEXEC WAYLAND WEBP X11 XAW3D XDBE XFT XIM XINERAMA XINPUT2 XPM XRANDR XWIDGETS \
  X_TOOLKIT ZLIB; do
 
     case $opt in

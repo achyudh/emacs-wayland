@@ -470,6 +470,8 @@ return values.  */)
       return Qns;
     case output_pgtk:
       return Qpgtk;
+    case output_wayland:
+      return Qwayland;
     case output_haiku:
       return Qhaiku;
     case output_android:

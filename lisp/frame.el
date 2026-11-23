@@ -2131,6 +2131,7 @@ live frame and defaults to the selected one."
 (declare-function pgtk-frame-geometry "pgtkfns.c" (&optional frame))
 (declare-function haiku-frame-geometry "haikufns.c" (&optional frame))
 (declare-function android-frame-geometry "androidfns.c" (&optional frame))
+(declare-function wayland-frame-geometry "waylandfns.c" (frame &optional edges))
 (declare-function tty-frame-geometry "term.c" (&optional frame))
 
 (defun frame-geometry (&optional frame)
@@ -2141,6 +2142,7 @@ and width values are in pixels.
 
 `outer-position' is a cons of the outer left and top edges of FRAME
   relative to the origin - the position (0, 0) - of FRAME's display.
+  Wayland reports a surface-local origin of (0, 0).
 
 `outer-size' is a cons of the outer width and height of FRAME.  The
   outer size includes the title bar and the external borders as well as
@@ -2187,6 +2189,8 @@ and width values are in pixels.
       (haiku-frame-geometry frame))
      ((eq frame-type 'android)
       (android-frame-geometry frame))
+     ((eq frame-type 'wayland)
+      (wayland-frame-geometry frame))
      (t
       (tty-frame-geometry frame)))))
 
@@ -2305,7 +2309,8 @@ FRAME must be a live frame and defaults to the selected one.  The
 list returned has the form (LEFT TOP RIGHT BOTTOM) where all
 values are in pixels relative to the origin - the position (0, 0)
 - of FRAME's display.  For terminal frames all values are
-relative to LEFT and TOP which are both zero.
+relative to LEFT and TOP which are both zero.  Wayland reports
+surface-local edges.
 
 Optional argument TYPE specifies the type of the edges.  TYPE
 `outer-edges' means to return the outer edges of FRAME.  TYPE
@@ -2327,6 +2332,8 @@ FRAME."
       (haiku-frame-edges frame type))
      ((eq frame-type 'android)
       (android-frame-edges frame type))
+     ((eq frame-type 'wayland)
+      (wayland-frame-geometry frame (or type 'native-edges)))
      (t
       (tty-frame-edges frame type)))))
 
@@ -2336,6 +2343,7 @@ FRAME."
 (declare-function pgtk-mouse-absolute-pixel-position "pgtkfns.c")
 (declare-function haiku-mouse-absolute-pixel-position "haikufns.c")
 (declare-function android-mouse-absolute-pixel-position "androidfns.c")
+(declare-function wayland-mouse-absolute-pixel-position "waylandfns.c")
 
 (defun mouse-absolute-pixel-position ()
   "Return absolute position of mouse cursor in pixels.
@@ -2356,6 +2364,8 @@ position (0, 0) of the selected frame's terminal."
       (haiku-mouse-absolute-pixel-position))
      ((eq frame-type 'android)
       (android-mouse-absolute-pixel-position))
+     ((eq frame-type 'wayland)
+      (wayland-mouse-absolute-pixel-position))
      (t
       (cons 0 0)))))
 
@@ -2517,6 +2527,8 @@ Return nil if DISPLAY contains no Emacs frame."
 (declare-function w32-frame-restack "w32fns.c" (frame1 frame2 &optional above))
 (declare-function ns-frame-restack "nsfns.m" (frame1 frame2 &optional above))
 (declare-function pgtk-frame-restack "pgtkfns.c" (frame1 frame2 &optional above))
+(declare-function wayland-frame-restack "waylandfns.c"
+                  (frame1 frame2 &optional above))
 (declare-function haiku-frame-restack "haikufns.c" (frame1 frame2 &optional above))
 (declare-function android-frame-restack "androidfns.c" (frame1 frame2
                                                                &optional above))
@@ -2555,6 +2567,8 @@ Some window managers may refuse to restack windows."
           (haiku-frame-restack frame1 frame2 above))
          ((eq frame-type 'pgtk)
           (pgtk-frame-restack frame1 frame2 above))
+         ((eq frame-type 'wayland)
+          (wayland-frame-restack frame1 frame2 above))
          ((eq frame-type 'android)
           (android-frame-restack frame1 frame2 above))
          (t
@@ -2666,6 +2680,7 @@ Any other value means consider all frames."
 
 (declare-function msdos-mouse-p "dosfns.c")
 (declare-function android-detect-mouse "androidfns.c")
+(declare-function wayland-display-mouse-p "waylandfns.c" (&optional display))
 
 (defun display-mouse-p (&optional display)
   "Return non-nil if DISPLAY has a mouse available.
@@ -2682,6 +2697,8 @@ frame's display)."
       t)    ;; We assume X, NeXTstep, GTK, and Haiku *always* have a pointing device
      ((eq frame-type 'android)
       (android-detect-mouse))
+     ((eq frame-type 'wayland)
+      (wayland-display-mouse-p display))
      (t
       (or (and (featurep 'xt-mouse)
 	       xterm-mouse-mode)
@@ -2697,11 +2714,10 @@ frame's display)."
   "Return non-nil if popup menus are supported on DISPLAY.
 DISPLAY can be a display name, a frame, or nil (meaning the selected
 frame's display).
-Support for popup menus requires that a suitable pointing device
-be available."
-  ;; Android menus work fine with touch screens as well, and one must
-  ;; be present.
-  (or (eq (framep-on-display display) 'android)
+Wayland supports these menus through minibuffer completion.
+Other displays need a suitable pointing device or touch input."
+  ;; Android has touch input. Wayland menus use the minibuffer.
+  (or (not (null (memq (framep-on-display display) '(android wayland))))
       (display-mouse-p display)))
 
 (defun display-graphic-p (&optional display)
@@ -2712,7 +2728,7 @@ that use a window system such as X, and false for text-only terminals.
 DISPLAY can be a display name, a frame, or nil (meaning the selected
 frame's display)."
   (not (null (memq (framep-on-display display) '(x w32 ns pgtk haiku
-                                                   android)))))
+                                                   android wayland)))))
 
 (defun display-images-p (&optional display)
   "Return non-nil if DISPLAY can display images.
@@ -2751,7 +2767,7 @@ frame's display)."
       ;; a Windows DOS Box.
       (with-no-warnings
        (not (null dos-windows-version))))
-     ((memq frame-type '(x w32 ns pgtk))
+     ((memq frame-type '(x w32 ns pgtk wayland))
       t)
      ((and tty-select-active-regions
            (terminal-parameter nil 'xterm--set-selection))
@@ -2764,7 +2780,7 @@ frame's display)."
 This means that, for example, DISPLAY can differentiate between
 the keybinding DEL and [delete]."
   (let ((frame-type (framep-on-display display)))
-    (or (memq frame-type '(x w32 ns pc pgtk haiku android))
+    (or (memq frame-type '(x w32 ns pc pgtk haiku android wayland))
         (terminal-parameter (get-device-terminal display)
                             'tty-kitty-kbd-proto)
         ;; MS-DOS and MS-Windows terminals have built-in support for
@@ -2779,7 +2795,7 @@ DISPLAY should be either a frame or a display name (a string).
 If DISPLAY is omitted or nil, it defaults to the selected frame's display."
   (let ((frame-type (framep-on-display display)))
     (cond
-     ((memq frame-type '(x w32 ns haiku pgtk android))
+     ((memq frame-type '(x w32 ns haiku pgtk android wayland))
       (x-display-screens display))
      (t
       1))))
@@ -2797,10 +2813,11 @@ For character terminals, each character counts as a single pixel.
 For graphical terminals, note that on \"multi-monitor\" setups this
 refers to the pixel height for all physical monitors associated
 with DISPLAY.  To get information for each physical monitor, use
-`display-monitor-attributes-list'."
+`display-monitor-attributes-list'.  Wayland estimates the logical
+height from active outputs and returns zero when there are none."
   (let ((frame-type (framep-on-display display)))
     (cond
-     ((memq frame-type '(x w32 ns haiku pgtk android))
+     ((memq frame-type '(x w32 ns haiku pgtk android wayland))
       (x-display-pixel-height display))
      (t
       (tty-display-pixel-height display)))))
@@ -2818,10 +2835,11 @@ For character terminals, each character counts as a single pixel.
 For graphical terminals, note that on \"multi-monitor\" setups this
 refers to the pixel width for all physical monitors associated
 with DISPLAY.  To get information for each physical monitor, use
-`display-monitor-attributes-list'."
+`display-monitor-attributes-list'.  Wayland estimates the logical
+width from active outputs and returns zero when there are none."
   (let ((frame-type (framep-on-display display)))
     (cond
-     ((memq frame-type '(x w32 ns haiku pgtk android))
+     ((memq frame-type '(x w32 ns haiku pgtk android wayland))
       (x-display-pixel-width display))
      (t
       (tty-display-pixel-width display)))))
@@ -2859,7 +2877,7 @@ For graphical terminals, note that on \"multi-monitor\" setups this
 refers to the height in millimeters for all physical monitors
 associated with DISPLAY.  To get information for each physical
 monitor, use `display-monitor-attributes-list'."
-  (and (memq (framep-on-display display) '(x w32 ns haiku pgtk android))
+  (and (memq (framep-on-display display) '(x w32 ns haiku pgtk android wayland))
        (or (cddr (assoc (or display (frame-parameter nil 'display))
 			display-mm-dimensions-alist))
 	   (cddr (assoc t display-mm-dimensions-alist))
@@ -2880,7 +2898,7 @@ For graphical terminals, note that on \"multi-monitor\" setups this
 refers to the width in millimeters for all physical monitors
 associated with DISPLAY.  To get information for each physical
 monitor, use `display-monitor-attributes-list'."
-  (and (memq (framep-on-display display) '(x w32 ns haiku pgtk android))
+  (and (memq (framep-on-display display) '(x w32 ns haiku pgtk android wayland))
        (or (cadr (assoc (or display (frame-parameter nil 'display))
 			display-mm-dimensions-alist))
 	   (cadr (assoc t display-mm-dimensions-alist))
@@ -2900,6 +2918,8 @@ If DISPLAY is omitted or nil, it defaults to the selected frame's display."
     (cond
      ((memq frame-type '(x w32 ns haiku pgtk android))
       (x-display-backing-store display))
+     ((eq frame-type 'wayland)
+      nil)
      (t
       'not-useful))))
 
@@ -2913,6 +2933,8 @@ If DISPLAY is omitted or nil, it defaults to the selected frame's display."
     (cond
      ((memq frame-type '(x w32 ns haiku pgtk android))
       (x-display-save-under display))
+     ((eq frame-type 'wayland)
+      nil)
      (t
       'not-useful))))
 
@@ -2924,7 +2946,7 @@ DISPLAY can be a display name or a frame.
 If DISPLAY is omitted or nil, it defaults to the selected frame's display."
   (let ((frame-type (framep-on-display display)))
     (cond
-     ((memq frame-type '(x w32 ns haiku pgtk android))
+     ((memq frame-type '(x w32 ns haiku pgtk android wayland))
       (x-display-planes display))
      ((eq frame-type 'pc)
       4)
@@ -2941,6 +2963,8 @@ If DISPLAY is omitted or nil, it defaults to the selected frame's display."
     (cond
      ((memq frame-type '(x w32 ns haiku pgtk android))
       (x-display-color-cells display))
+     ((eq frame-type 'wayland)
+      (ash 1 (display-planes display)))
      ((eq frame-type 'pc)
       16)
      (t
@@ -2958,6 +2982,8 @@ If DISPLAY is omitted or nil, it defaults to the selected frame's display."
     (cond
      ((memq frame-type '(x w32 ns haiku pgtk android))
       (x-display-visual-class display))
+     ((eq frame-type 'wayland)
+      'true-color)
      ((and (memq frame-type '(pc t))
 	   (tty-display-color-p display))
       'static-color)
@@ -2976,6 +3002,9 @@ If DISPLAY is omitted or nil, it defaults to the selected frame's display."
 		  (&optional terminal))
 (declare-function android-display-monitor-attributes-list "androidfns.c"
                   (&optional terminal))
+
+(declare-function wayland-display-monitor-attributes-list "waylandterm.c"
+                  (&optional display))
 
 (defun display-monitor-attributes-list (&optional display)
   "Return a list of physical monitor attributes on DISPLAY.
@@ -3020,7 +3049,9 @@ is the closest to the frame if the frame does not intersect any
 physical monitors.  Every (non-tooltip) frame (including invisible ones)
 in a graphical display is dominated by exactly one physical
 monitor at a time, though it can span multiple (or no) physical
-monitors."
+monitors.  On Wayland, Emacs uses the earliest advertised monitor among
+those the frame intersects, or the earliest available monitor if none
+intersect.  Wayland geometry uses logical coordinates."
   (let ((frame-type (framep-on-display display)))
     (cond
      ((eq frame-type 'x)
@@ -3031,6 +3062,8 @@ monitors."
       (ns-display-monitor-attributes-list display))
      ((eq frame-type 'pgtk)
       (pgtk-display-monitor-attributes-list display))
+     ((eq frame-type 'wayland)
+      (wayland-display-monitor-attributes-list display))
      ((eq frame-type 'haiku)
       (haiku-display-monitor-attributes-list display))
      ((eq frame-type 'android)
@@ -3046,6 +3079,7 @@ monitors."
 
 (declare-function x-device-class "term/x-win.el" (name))
 (declare-function pgtk-device-class "term/pgtk-win.el" (name))
+(declare-function wayland-device-class "term/wayland-win.el" (name))
 
 (defun device-class (frame name)
   "Return the class of the device NAME for an event generated on FRAME.
@@ -3102,6 +3136,8 @@ symbols."
            (x-device-class name))
           ((eq frame-type 'pgtk)
            (pgtk-device-class name))
+          ((eq frame-type 'wayland)
+           (wayland-device-class name))
           (t (cond
               ((not name) nil)
               ((string= name "Virtual core pointer")

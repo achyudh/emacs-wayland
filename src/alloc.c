@@ -5760,6 +5760,9 @@ garbage_collect (void)
 #ifdef HAVE_PGTK
   mark_pgtkterm ();
 #endif
+#ifdef HAVE_WAYLAND
+  mark_waylandterm ();
+#endif
 
 #ifdef USE_GTK
   xg_mark_data ();

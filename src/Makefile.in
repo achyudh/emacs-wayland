@@ -326,6 +326,20 @@ W32_LIBS=@W32_LIBS@
 PGTK_OBJ=@PGTK_OBJ@
 PGTK_LIBS=@PGTK_LIBS@
 
+## Native Wayland backend.  WAYLAND_PROTOCOLS names the files in
+## wayland-protocols/ (without .xml); wayland-scanner turns each into a
+## client header and glue code in the build directory.
+WAYLAND_OBJ=@WAYLAND_OBJ@
+WAYLAND_PROTOCOL_OBJ=@WAYLAND_PROTOCOL_OBJ@
+WAYLAND_LIBS=@WAYLAND_LIBS@
+WAYLAND_SCANNER=@WAYLAND_SCANNER@
+WAYLAND_PROTOCOLS = xdg-shell viewporter presentation-time tablet-v2 \
+  fractional-scale-v1 xdg-activation-v1 cursor-shape-v1 \
+  xdg-decoration-unstable-v1 primary-selection-unstable-v1 \
+  text-input-unstable-v3 xdg-output-unstable-v1
+WAYLAND_PROTOCOL_HEADERS = $(WAYLAND_PROTOCOLS:%=%-client-protocol.h)
+WAYLAND_PROTOCOL_SOURCES = $(WAYLAND_PROTOCOLS:%=%-protocol.c)
+
 ## emacs.res if HAVE_W32
 EMACSRES = @EMACSRES@
 ## If HAVE_W32, compiler arguments for including
@@ -467,7 +481,7 @@ base_obj = dispnew.o frame.o scroll.o xdisp.o menu.o $(XMENU_OBJ) window.o     \
 	itree.o json.o 							       \
 	$(MSDOS_OBJ) $(MSDOS_X_OBJ) $(NS_OBJ) $(CYGWIN_OBJ) $(FONT_OBJ)        \
 	$(W32_OBJ) $(WINDOW_SYSTEM_OBJ) $(XGSELOBJ)			       \
-	$(HAIKU_OBJ) $(PGTK_OBJ) $(ANDROID_OBJ)
+	$(HAIKU_OBJ) $(PGTK_OBJ) $(ANDROID_OBJ) $(WAYLAND_OBJ)
 doc_obj = $(base_obj) $(NS_OBJC_OBJ)
 obj = $(doc_obj) $(HAIKU_CXX_OBJ)
 
@@ -485,10 +499,11 @@ SOME_MACHINE_OBJECTS = dosfns.o msdos.o \
   w16select.o widget.o xfont.o ftfont.o xftfont.o gtkutil.o \
   xsettings.o xgselect.o termcap.o hbfont.o \
   haikuterm.o haikufns.o haikumenu.o haikufont.o androidterm.o androidfns.o \
-  androidfont.o androidselect.c androidvfs.c sfntfont-android.c sfntfont.c
+  androidfont.o androidselect.c androidvfs.c sfntfont-android.c sfntfont.c \
+  waylandterm.o waylanddraw.o waylandfns.o waylandselect.o waylandim.o
 
 ## List of object files that make-docfile should not be told about.
-otherobj= $(TERMCAP_OBJ) $(WIDGET_OBJ) $(LIBOBJS)
+otherobj= $(TERMCAP_OBJ) $(WIDGET_OBJ) $(LIBOBJS) $(WAYLAND_PROTOCOL_OBJ)
 
 ## All object files linked into temacs.
 ALLOBJS = $(obj) $(otherobj)
@@ -562,7 +577,7 @@ export LISP_PRELOADED = ${shortlisp}
 lisp = $(addprefix ${lispsource}/,${shortlisp})
 
 ## Construct full set of libraries to be linked.
-LIBES = $(LIBS) $(W32_LIBS) $(LIBS_GNUSTEP) $(PGTK_LIBS) $(LIBX_BASE) $(LIBIMAGE) \
+LIBES = $(LIBS) $(W32_LIBS) $(LIBS_GNUSTEP) $(PGTK_LIBS) $(WAYLAND_LIBS) $(LIBX_BASE) $(LIBIMAGE) \
    $(LIBX_OTHER) $(LIBSOUND) \
    $(RSVG_LIBS) $(IMAGEMAGICK_LIBS) $(LIB_ACL) $(CLOCK_TIME_LIB) \
    $(NANOSLEEP_LIB) $(QCOPY_ACL_LIB) $(WEBKIT_LIBS) \
@@ -780,11 +795,31 @@ emacs.res: FORCE
 ns-app: emacs$(EXEEXT) $(pdmp)
 	$(MAKE) -C ../nextstep all
 
+## Wayland protocol glue, generated from wayland-protocols/*.xml.
+%-client-protocol.h: $(srcdir)/wayland-protocols/%.xml
+	$(AM_V_GEN)$(WAYLAND_SCANNER) client-header $< $@
+%-protocol.c: $(srcdir)/wayland-protocols/%.xml
+	$(AM_V_GEN)$(WAYLAND_SCANNER) private-code $< $@
+
+ifneq ($(WAYLAND_OBJ),)
+## The backend includes the generated headers, so they must exist before
+## any backend file is compiled.
+$(WAYLAND_OBJ): | $(WAYLAND_PROTOCOL_HEADERS)
+## Generated code is not ours to fix; compile it without Emacs's warnings,
+## and with config.h first, which Gnulib's replacement headers require.
+$(WAYLAND_PROTOCOL_OBJ): WARN_CFLAGS =
+$(WAYLAND_PROTOCOL_OBJ): CPPFLAGS += -include config.h
+endif
+
+.PHONY: wayland-protocol-code
+wayland-protocol-code: $(WAYLAND_PROTOCOL_HEADERS) $(WAYLAND_PROTOCOL_SOURCES)
+
 .PHONY: mostlyclean clean bootstrap-clean distclean maintainer-clean
 .PHONY: versionclean
 
 mostlyclean:
 	rm -f android-emacs libemacs.so
+	rm -f $(WAYLAND_PROTOCOL_HEADERS) $(WAYLAND_PROTOCOL_SOURCES)
 	rm -f temacs$(EXEEXT) core ./*.core \#* ./*.o build-counter.c
 	rm -f dmpstruct.h
 	rm -f emacs.pdmp

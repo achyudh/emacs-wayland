@@ -659,6 +659,7 @@ struct frame
     struct pgtk_output *pgtk;		/* From pgtkterm.h. */
     struct haiku_output *haiku;		/* From haikuterm.h. */
     struct android_output *android;	/* From androidterm.h.  */
+    struct wayland_output *wayland;	/* From waylandterm.h.  */
   }
   output_data;
 
@@ -952,6 +953,11 @@ default_pixels_per_inch_y (void)
 #else
 #define FRAME_PGTK_P(f) ((f)->output_method == output_pgtk)
 #endif
+#ifndef HAVE_WAYLAND
+#define FRAME_WAYLAND_P(f) false
+#else
+#define FRAME_WAYLAND_P(f) ((f)->output_method == output_wayland)
+#endif
 #ifndef HAVE_HAIKU
 #define FRAME_HAIKU_P(f) false
 #else
@@ -977,6 +983,9 @@ default_pixels_per_inch_y (void)
 #ifdef HAVE_PGTK
 #define FRAME_WINDOW_P(f) FRAME_PGTK_P(f)
 #endif
+#ifdef HAVE_WAYLAND
+#define FRAME_WINDOW_P(f) FRAME_WAYLAND_P (f)
+#endif
 #ifdef HAVE_HAIKU
 #define FRAME_WINDOW_P(f) FRAME_HAIKU_P (f)
 #endif
@@ -991,10 +1000,31 @@ default_pixels_per_inch_y (void)
 
 #ifdef HAVE_WINDOW_SYSTEM
 
+#ifdef HAVE_WAYLAND
+#define FRAME_RES_X(f)                                            \
+  (eassert (FRAME_WAYLAND_P (f)), (f)->output_data.wayland->resx)
+#define FRAME_RES_Y(f)                                            \
+  (eassert (FRAME_WAYLAND_P (f)), (f)->output_data.wayland->resy)
+#else
 #define FRAME_RES_X(f)						\
   (eassert (FRAME_WINDOW_P (f)), FRAME_DISPLAY_INFO (f)->resx)
 #define FRAME_RES_Y(f)						\
   (eassert (FRAME_WINDOW_P (f)), FRAME_DISPLAY_INFO (f)->resy)
+#endif
+
+/* The device scale of frame F's pixels, by which images are scaled.
+   Wayland frames use physical pixels, so images are sized in logical
+   pixels and then scaled by the frame's scale, as PGTK does; image
+   caches are keyed by the scale as well as the column width.  Other
+   frames use 1.  */
+#ifdef HAVE_WAYLAND
+#define FRAME_IMAGE_DEVICE_SCALE(f)					\
+  (FRAME_WAYLAND_P (f) ? FRAME_RES_X (f) / 96.0 : 1.0)
+#else
+#define FRAME_IMAGE_DEVICE_SCALE(f) 1.0
+#endif
+#define FRAME_IMAGE_SCALE_KEY(f)					\
+  ((int) (FRAME_IMAGE_DEVICE_SCALE (f) * 120 + 0.5))
 
 #ifdef HAVE_ANDROID
 
@@ -1057,6 +1087,9 @@ default_pixels_per_inch_y (void)
 # define FRAME_SCALE_FACTOR(f) (FRAME_NS_P (f) ? ns_frame_scale_factor (f) : 1)
 #elif defined HAVE_PGTK
 # define FRAME_SCALE_FACTOR(f) (FRAME_PGTK_P (f) ? pgtk_frame_scale_factor (f) : 1)
+#elif defined HAVE_WAYLAND
+# define FRAME_SCALE_FACTOR(f) (FRAME_WAYLAND_P (f)		      \
+			       ? wayland_frame_scale (f) / 120.0 : 1)
 #else
 # define FRAME_SCALE_FACTOR(f) 1
 #endif
@@ -1473,6 +1506,8 @@ extern int frame_default_tool_bar_height;
 
 extern WINDOW_SYSTEM_RETURN struct frame *
   decode_window_system_frame (Lisp_Object);
+extern Lisp_Object frame_geometry_without_wm (struct frame *, Lisp_Object,
+					      int, int);
 extern struct frame *decode_live_frame (Lisp_Object);
 extern struct frame *decode_any_frame (Lisp_Object);
 extern struct frame *make_initial_frame (void);
